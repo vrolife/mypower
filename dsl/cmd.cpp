@@ -8,7 +8,7 @@ struct ParserContext { };
 
 namespace cmd {
 
-std::vector<std::string> parse(const std::string& str)
+std::pair<std::string, std::vector<std::string>> parse(const std::string& str)
 {
     std::istringstream iss{str};
     Tokenizer tokenizer{"<commandline>", iss, std::cout};

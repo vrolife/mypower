@@ -232,7 +232,11 @@ class CommandParser(metaclass=Parser):
     def LIST(self, lst, s):
         pass
 
-    _ = Start(LIST)
+    @Rule(STRING, LIST)
+    def COMMAND(self, cmd, lst):
+        pass
+
+    _ = Start(COMMAND)
 
     tokenizer = StaticTokenizer(default_action=lambda ctx: ctx.step(len(ctx.text)))
 

@@ -8,7 +8,11 @@ namespace dsl {
         return expr::parse(string);
     }
 
-    std::vector<std::string> parse_command(const std::string& string) {
-        return cmd::parse(string);
+    std::pair<std::string, std::vector<std::string>> parse_command(const std::string& string) {
+        try {
+            return cmd::parse(string);
+        } catch(...) {
+            return {{},{}};
+        }
     }
 }

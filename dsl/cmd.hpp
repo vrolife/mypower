@@ -144,7 +144,15 @@ struct LIST : public Symbol<std::vector<std::string>>
     };
 };
 
-std::vector<std::string> parse(const std::string& str);
+struct COMMAND : public Symbol<std::pair<std::string, std::vector<std::string>>>
+{
+    COMMAND(STRING& cmd, LIST& lst)
+    :Symbol<std::pair<std::string, std::vector<std::string>>>({ cmd.release(), lst.release() })
+    {
+    };
+};
+
+std::pair<std::string, std::vector<std::string>> parse(const std::string& str);
 
 } // namespace cmd
 

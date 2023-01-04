@@ -163,6 +163,7 @@ struct MatchValue {
         }
         }
 #undef __COMPARE
+        ::abort();
     }
 
     template <typename Comparator>
@@ -187,6 +188,7 @@ struct MatchValue {
             __COMPARE(uint8_t*, bytes, BYTES)
         }
 #undef __COMPARE
+        ::abort();
     }
 
     void operator delete(void* ptr)

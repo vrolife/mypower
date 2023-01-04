@@ -6,7 +6,7 @@
 
 namespace dsl {
     uint64_t parse_expr(const std::string& string);
-    std::vector<std::string> parse_command(const std::string& string);
+    std::pair<std::string, std::vector<std::string>> parse_command(const std::string& string);
 }
 
 #endif

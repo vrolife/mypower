@@ -26,13 +26,18 @@ SOFTWARE.
 #include "tui.hpp"
 
 using namespace tui;
+using namespace std::string_literals;
 
 class MainMenu : public VisibleVector<std::string> {
 public:
     MainMenu() {
-        this->emplace_back("submenu");
+        this->emplace_back("list");
         this->emplace_back("history");
         this->emplace_back("exit");
+    }
+    
+    std::string tui_name() override {
+        return "main_menu";
     }
 
     StyleString tui_title(size_t width) override
@@ -41,15 +46,25 @@ public:
     }
 };
 
-class SubMenu : public VisibleVector<std::string> {
+class LongList : public VisibleVector<std::string> {
 public:
-    SubMenu() {
-        this->emplace_back("back");
+    LongList() {
+        for (auto i = 0; i < 100; ++i) {
+            if (i%2) {
+                this->emplace_back("Item "s + std::to_string(i));
+            } else {
+                this->emplace_back("Item "s + std::to_string(i) + "\n    Item "s + std::to_string(i) + " Second Line"s);
+            }
+        }
+    }
+    
+    std::string tui_name() override {
+        return "long_lsit";
     }
 
     StyleString tui_title(size_t width) override
     {
-        return StyleString::layout("Sub Menu", width, 1, '=', LayoutAlign::Center);
+        return StyleString::layout("Long List", width, 1, '=', LayoutAlign::Center);
     }
 };
 
@@ -58,7 +73,7 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
     std::shared_ptr<MessageView> _message;
     std::shared_ptr<HistoryView> _history;
     std::shared_ptr<MainMenu> _main_menu;
-    std::shared_ptr<SubMenu> _sub_menu;
+    std::shared_ptr<LongList> _long_list;
 
     std::stack<std::shared_ptr<ContentProvider>> _view_stack{};
 
@@ -68,9 +83,9 @@ public:
         , _message(std::make_shared<MessageView>())
         , _history(std::make_shared<HistoryView>())
         , _main_menu(std::make_shared<MainMenu>())
-        , _sub_menu(std::make_shared<SubMenu>())
+        , _long_list(std::make_shared<LongList>())
     {
-        _history->set_flags(VisibleVectorFlagTail);
+        _history->set_flags(ContentProviderFlagAutoScrollTail);
         push(_message);
     }
 
@@ -99,8 +114,8 @@ public:
         _history->push_back(command);
         if (command == "exit") {
             _tui.exit();
-        } else if (command == "submenu") {
-            push(_sub_menu);
+        } else if (command == "list") {
+            push(_long_list);
         } else if (command == "history") {
             push(_history);
         } else if (command == "help") {
@@ -116,7 +131,7 @@ public:
 
 int main(int argc, char* argv[])
 {
-    TUI tui {};
+    TUI tui {TUIFlagColor};
     tui.attach(std::make_shared<App>(tui));
     tui.run();
     return 0;
