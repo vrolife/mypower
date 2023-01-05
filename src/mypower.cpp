@@ -22,12 +22,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <iostream>
 #include <regex>
 #include <stack>
-
-#include "dsl.hpp"
-#include "scanner.hpp"
-#include "tui.hpp"
+#include <random>
 
 #include <boost/program_options.hpp>
+
+#include "dsl.hpp"
+#include "processlist.hpp"
+#include "scanner.hpp"
+#include "tui.hpp"
 
 #define PARSE_ARG(name)                                                                       \
     try {                                                                                     \
@@ -38,12 +40,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             vm);                                                                              \
         notify(vm);                                                                           \
     } catch (const std::exception& exc) {                                                     \
-        _message->stream()                                                                    \
+        _message_view->stream()                                                                    \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " " << exc.what();                                                             \
         return;                                                                               \
     } catch (...) {                                                                           \
-        _message->stream()                                                                    \
+        _message_view->stream()                                                                    \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " Unknown error";                                                              \
         return;                                                                               \
@@ -54,12 +56,71 @@ namespace po = boost::program_options;
 using namespace mypower;
 using namespace tui;
 
+class TestView : public VisibleContainer<ssize_t> {
+public:
+    TestView()
+    {
+        std::random_device rd{};
+        std::uniform_int_distribution<ssize_t> dist(0, 1000);
+        emplace_back(dist(rd));
+        emplace_back(0);
+        emplace_back(0);
+        emplace_back(0);
+        emplace_back(0);
+    }
+
+    StyleString tui_title(size_t width) override
+    {
+        return StyleString::layout("Test", width, 1, '-', LayoutAlign::Center);
+    }
+
+    StyleString tui_item(size_t index, size_t width) override
+    {
+        switch (index) {
+        case 0:
+            return StyleString { std::to_string(at(0)) + " (INT32)"s};
+        case 1:
+            return StyleString { "+1" };
+        case 2:
+            return StyleString { "-1" };
+        case 3:
+            return StyleString { "+5" };
+        case 4:
+            return StyleString { "-5" };
+        }
+        return {};
+    }
+
+    std::string tui_select(size_t index) override {
+        switch(index) {
+            case 1:
+                at(0) += 1;
+                tui_notify_changed();
+                break;
+            case 2:
+                at(0) -= 1;
+                tui_notify_changed();
+                break;
+            case 3:
+                at(0) += 5;
+                tui_notify_changed();
+                break;
+            case 4:
+                at(0) -= 5;
+                tui_notify_changed();
+                break;
+        }
+        return {};
+    }
+};
+
 class SessionView { };
 
 class App : public CommandHandler, public std::enable_shared_from_this<App> {
     TUI& _tui;
-    std::shared_ptr<MessageView> _message;
-    std::shared_ptr<HistoryView> _history;
+    std::shared_ptr<MessageView> _message_view;
+    std::shared_ptr<HistoryView> _history_view;
+    std::shared_ptr<TestView> _test_view;
     std::stack<std::shared_ptr<ContentProvider>> _view_stack {};
 
     std::shared_ptr<Process> _process;
@@ -69,20 +130,27 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
     po::options_description _options_attach { "Allowed options" };
     po::positional_options_description _posiginal_attach {};
 
+    po::options_description _options_findps { "Allowed options" };
+    po::positional_options_description _posiginal_findps {};
+
 public:
     App(TUI& tui, pid_t pid)
         : _tui(tui)
-        , _message(std::make_shared<MessageView>())
-        , _history(std::make_shared<HistoryView>())
+        , _message_view(std::make_shared<MessageView>())
+        , _history_view(std::make_shared<HistoryView>())
+        , _test_view(std::make_shared<TestView>())
     {
         _options_attach.add_options()("help", "show help message")("pid,p", po::value<pid_t>(), "target process pid");
         _posiginal_attach.add("pid", -1);
+
+        _options_findps.add_options()("help", "show help message")("filter,f", po::value<std::string>(), "regex filter");
+        _posiginal_findps.add("filter", -1);
 
         if (pid != -1) {
             _process = std::make_shared<Process>(pid);
         }
 
-        push(_message);
+        push(_message_view);
     }
 
     StyleString tui_prompt(size_t width) override
@@ -96,6 +164,9 @@ public:
     template <typename T>
     void push(T&& view)
     {
+        if (not _view_stack.empty() and _view_stack.top() == view) {
+            return;
+        }
         _view_stack.push(std::dynamic_pointer_cast<ContentProvider>(view));
         _tui.show(_view_stack.top());
     }
@@ -112,12 +183,13 @@ public:
         _tui.show(_view_stack.top());
     }
 
-    bool tui_key(int key) override {
-        switch(key) {
-            case KEY_UP:
-            case KEY_DOWN:
-                _history->history_key(key, _tui.editor());
-                break;
+    bool tui_key(int key) override
+    {
+        switch (key) {
+        case KEY_UP:
+        case KEY_DOWN:
+            _history_view->history_key(key, _tui.editor());
+            break;
         }
         return false;
     }
@@ -131,12 +203,20 @@ public:
             return;
         }
 
+        if (command == "selfattach") {
+            command = "attach";
+            arguments = { std::to_string(getpid()) };
+        }
+
         if (command == "exit") {
             _tui.exit();
+
         } else if (command == "msg" or command == "mesg" or command == "message") {
-            push(_message);
+            push(_message_view);
+
         } else if (command == "history") {
-            push(_history);
+            push(_history_view);
+
         } else if (command == "back") {
             pop();
 
@@ -151,14 +231,14 @@ public:
                     pid = vm["pid"].as<pid_t>();
                 }
             } catch (const std::exception& e) {
-                _message->stream()
+                _message_view->stream()
                     << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
                     << e.what();
                 return;
             }
 
             if (pid == -1) {
-                _message->stream() << "Usage: attach [options] process\n"
+                _message_view->stream() << "Usage: attach [options] pid\n"
                                    << _options_attach;
                 return;
             }
@@ -167,17 +247,49 @@ public:
             _sessions.clear();
             _process = std::make_shared<Process>(pid);
 
-        } else if (command == "scan") {
+        } else if (command == "ps") {
+            push(std::make_shared<ProcessList>());
+
+        } else if (command == "findpsex" or command == "findps") {
+            po::variables_map vm {};
+            PARSE_ARG(findps);
+            std::string filter {};
+
+            try {
+                if (vm.count("filter")) {
+                    filter = vm["filter"].as<std::string>();
+                }
+            } catch (const std::exception& e) {
+                _message_view->stream()
+                    << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                    << e.what();
+                return;
+            }
+
+            if (filter.empty()) {
+                _message_view->stream() << "Usage: " << command << " [options] regex\n"
+                                   << _options_findps;
+                return;
+            }
+
+            if (command == "findps") {
+                filter = ".*"s + filter + ".*"s;
+            }
+
+            push(std::make_shared<ProcessList>(filter));
+
+        } else if (command == "test") {
+            push(_test_view);
 
         } else {
             using namespace tui::style;
-            _message->stream()
+            _message_view->stream()
                 << EnableStyle(AttrUnderline) << SetColor(ColorWarning) << "Unknown command:"
                 << ResetStyle() << " " << line;
-            push(_message);
+            push(_message_view);
         }
 
-        _history->push_back(command);
+        _history_view->push_back(command);
     }
 };
 

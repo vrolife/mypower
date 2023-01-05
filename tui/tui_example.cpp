@@ -28,7 +28,7 @@ SOFTWARE.
 using namespace tui;
 using namespace std::string_literals;
 
-class MainMenu : public VisibleVector<std::string> {
+class MainMenu : public VisibleContainer<std::string> {
 public:
     MainMenu() {
         this->emplace_back("list");
@@ -36,17 +36,21 @@ public:
         this->emplace_back("exit");
     }
     
-    std::string tui_name() override {
-        return "main_menu";
-    }
-
     StyleString tui_title(size_t width) override
     {
         return StyleString::layout("Main menu", width, 1, '=', LayoutAlign::Center);
     }
+
+    StyleString tui_item(size_t index, size_t width) override
+    {
+        if (index >= this->size()) {
+            return StyleString{};
+        }
+        return StyleString{this->at(index)};
+    }
 };
 
-class LongList : public VisibleVector<std::string> {
+class LongList : public VisibleContainer<std::string> {
 public:
     LongList() {
         for (auto i = 0; i < 100; ++i) {
@@ -57,21 +61,25 @@ public:
             }
         }
     }
-    
-    std::string tui_name() override {
-        return "long_lsit";
-    }
 
     StyleString tui_title(size_t width) override
     {
         return StyleString::layout("Long List", width, 1, '=', LayoutAlign::Center);
     }
+
+    StyleString tui_item(size_t index, size_t width) override
+    {
+        if (index >= this->size()) {
+            return StyleString{};
+        }
+        return StyleString{this->at(index)};
+    }
 };
 
 class App : public CommandHandler, public std::enable_shared_from_this<App> {
     TUI& _tui;
-    std::shared_ptr<MessageView> _message;
-    std::shared_ptr<HistoryView> _history;
+    std::shared_ptr<MessageView> _message_view;
+    std::shared_ptr<HistoryView> _history_view;
     std::shared_ptr<MainMenu> _main_menu;
     std::shared_ptr<LongList> _long_list;
 
@@ -80,13 +88,13 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
 public:
     App(TUI& tui)
         : _tui(tui)
-        , _message(std::make_shared<MessageView>())
-        , _history(std::make_shared<HistoryView>())
+        , _message_view(std::make_shared<MessageView>())
+        , _history_view(std::make_shared<HistoryView>())
         , _main_menu(std::make_shared<MainMenu>())
         , _long_list(std::make_shared<LongList>())
     {
-        _history->set_flags(ContentProviderFlagAutoScrollTail);
-        push(_message);
+        _history_view->set_flags(ContentProviderFlagAutoScrollTail);
+        push(_message_view);
     }
 
     StyleString tui_prompt(size_t width) override {
@@ -111,20 +119,20 @@ public:
 
     void tui_run(const std::string& command) override
     {
-        _history->push_back(command);
+        _history_view->push_back(command);
         if (command == "exit") {
             _tui.exit();
         } else if (command == "list") {
             push(_long_list);
         } else if (command == "history") {
-            push(_history);
+            push(_history_view);
         } else if (command == "help") {
             push(_main_menu);
         } else if (command == "back") {
             pop();
         } else {
             using namespace tui::style;
-            _message->stream() << EnableStyle(AttrUnderline) << "Unknown command: " << ResetStyle() << command;
+            _message_view->stream() << EnableStyle(AttrUnderline) << "Unknown command: " << ResetStyle() << command;
         }
     }
 };

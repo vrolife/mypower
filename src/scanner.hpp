@@ -377,7 +377,7 @@ public:
     }
 
     template <typename T>
-    void scan(T&& scanner, uint32_t mask = kRegionFlagReadWrite)
+    void search(T&& scanner, uint32_t mask = kRegionFlagReadWrite)
     {
         for (auto& region : _memory_regions) {
             if ((region._prot & mask) != mask) {
