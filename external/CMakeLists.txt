@@ -29,4 +29,6 @@ include(flex.cmake)
 include(ncurses.cmake)
 include(boost.cmake)
 
+add_subdirectory(sljit)
+
 add_boost_libs(program_options VERSION 1.81.0)

@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 
     auto session = std::make_shared<Session>(process, 4096);
     session->update_memory_region();
-    session->scan(ScanNumber<ComparatorEqual<uint32_t>, 1> { 0x109u });
+    session->search(ScanNumber<ComparatorEqual<uint32_t>> { { 0x109u }, 1 });
 
     assert(session->size() >= 2);
 

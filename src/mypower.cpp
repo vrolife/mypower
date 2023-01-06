@@ -20,15 +20,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <unistd.h>
 
 #include <iostream>
+#include <random>
 #include <regex>
 #include <stack>
-#include <random>
 
 #include <boost/program_options.hpp>
 
 #include "dsl.hpp"
 #include "processlist.hpp"
-#include "scanner.hpp"
+#include "process.hpp"
+#include "scan.hpp"
+#include "testview.hpp"
 #include "tui.hpp"
 
 #define PARSE_ARG(name)                                                                       \
@@ -40,12 +42,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             vm);                                                                              \
         notify(vm);                                                                           \
     } catch (const std::exception& exc) {                                                     \
-        _message_view->stream()                                                                    \
+        _message_view->stream()                                                               \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " " << exc.what();                                                             \
         return;                                                                               \
     } catch (...) {                                                                           \
-        _message_view->stream()                                                                    \
+        _message_view->stream()                                                               \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " Unknown error";                                                              \
         return;                                                                               \
@@ -53,68 +55,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace po = boost::program_options;
 
+using namespace std::string_literals;
 using namespace mypower;
 using namespace tui;
-
-class TestView : public VisibleContainer<ssize_t> {
-public:
-    TestView()
-    {
-        std::random_device rd{};
-        std::uniform_int_distribution<ssize_t> dist(0, 1000);
-        emplace_back(dist(rd));
-        emplace_back(0);
-        emplace_back(0);
-        emplace_back(0);
-        emplace_back(0);
-    }
-
-    StyleString tui_title(size_t width) override
-    {
-        return StyleString::layout("Test", width, 1, '-', LayoutAlign::Center);
-    }
-
-    StyleString tui_item(size_t index, size_t width) override
-    {
-        switch (index) {
-        case 0:
-            return StyleString { std::to_string(at(0)) + " (INT32)"s};
-        case 1:
-            return StyleString { "+1" };
-        case 2:
-            return StyleString { "-1" };
-        case 3:
-            return StyleString { "+5" };
-        case 4:
-            return StyleString { "-5" };
-        }
-        return {};
-    }
-
-    std::string tui_select(size_t index) override {
-        switch(index) {
-            case 1:
-                at(0) += 1;
-                tui_notify_changed();
-                break;
-            case 2:
-                at(0) -= 1;
-                tui_notify_changed();
-                break;
-            case 3:
-                at(0) += 5;
-                tui_notify_changed();
-                break;
-            case 4:
-                at(0) -= 5;
-                tui_notify_changed();
-                break;
-        }
-        return {};
-    }
-};
-
-class SessionView { };
 
 class App : public CommandHandler, public std::enable_shared_from_this<App> {
     TUI& _tui;
@@ -133,6 +76,9 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
     po::options_description _options_findps { "Allowed options" };
     po::positional_options_description _posiginal_findps {};
 
+    po::options_description _options_scan { "Allowed options" };
+    po::positional_options_description _posiginal_scan {};
+
 public:
     App(TUI& tui, pid_t pid)
         : _tui(tui)
@@ -140,11 +86,26 @@ public:
         , _history_view(std::make_shared<HistoryView>())
         , _test_view(std::make_shared<TestView>())
     {
-        _options_attach.add_options()("help", "show help message")("pid,p", po::value<pid_t>(), "target process pid");
-        _posiginal_attach.add("pid", -1);
+        _options_attach.add_options()("help", "show help message");
+        _options_attach.add_options()("pid,p", po::value<pid_t>(), "target process pid");
+        _posiginal_attach.add("pid", 1);
 
-        _options_findps.add_options()("help", "show help message")("filter,f", po::value<std::string>(), "regex filter");
-        _posiginal_findps.add("filter", -1);
+        _options_findps.add_options()("help", "show help message");
+        _options_findps.add_options()("filter,f", po::value<std::string>(), "regex filter");
+        _posiginal_findps.add("filter", 1);
+
+        _options_scan.add_options()("help", "show help message");
+        _options_scan.add_options()("step,s", po::value<bool>(), "step size");
+        _options_scan.add_options()("I64,q", po::value<bool>(), "64 bit integer");
+        _options_scan.add_options()("I32,i", po::value<bool>(), "32 bit integer");
+        _options_scan.add_options()("I16,h", po::value<bool>(), "16 bit integer");
+        _options_scan.add_options()("I8,b", po::value<bool>(), "8 bit integer");
+        _options_scan.add_options()("U64,Q", po::value<bool>(), "64 bit unsigned integer");
+        _options_scan.add_options()("U32,I", po::value<bool>(), "32 bit unsigned integer");
+        _options_scan.add_options()("U16,H", po::value<bool>(), "16 bit unsigned integer");
+        _options_scan.add_options()("U8,B", po::value<bool>(), "8 bit unsigned integer");
+        _options_scan.add_options()("expr", po::value<bool>(), "value expression");
+        _posiginal_scan.add("expr", 1);
 
         if (pid != -1) {
             _process = std::make_shared<Process>(pid);
@@ -239,7 +200,7 @@ public:
 
             if (pid == -1) {
                 _message_view->stream() << "Usage: attach [options] pid\n"
-                                   << _options_attach;
+                                        << _options_attach;
                 return;
             }
 
@@ -268,7 +229,7 @@ public:
 
             if (filter.empty()) {
                 _message_view->stream() << "Usage: " << command << " [options] regex\n"
-                                   << _options_findps;
+                                        << _options_findps;
                 return;
             }
 
@@ -280,6 +241,47 @@ public:
 
         } else if (command == "test") {
             push(_test_view);
+
+        } else if (command == "scan") {
+            po::variables_map vm {};
+            PARSE_ARG(scan);
+
+            ScanConfig config;
+
+            try {
+                if (vm.count("expr")) {
+                    config._expr = vm["expr"].as<std::string>();
+                }
+                config._type_bits |= vm.count("I8") > 0 ? MatchTypeBitI8 : 0;
+                config._type_bits |= vm.count("I16") > 0 ? MatchTypeBitI16 : 0;
+                config._type_bits |= vm.count("I32") > 0 ? MatchTypeBitI32 : 0;
+                config._type_bits |= vm.count("I64") > 0 ? MatchTypeBitI64 : 0;
+                config._type_bits |= vm.count("U8") > 0 ? MatchTypeBitU8 : 0;
+                config._type_bits |= vm.count("U16") > 0 ? MatchTypeBitU16 : 0;
+                config._type_bits |= vm.count("U32") > 0 ? MatchTypeBitU32 : 0;
+                config._type_bits |= vm.count("U64") > 0 ? MatchTypeBitU64 : 0;
+            } catch (const std::exception& e) {
+                _message_view->stream()
+                    << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                    << e.what();
+                return;
+            }
+
+            if (config._expr.empty()) {
+                _message_view->stream() << "Usage: " << command << " [options] expression\n"
+                                        << _options_scan;
+                return;
+            }
+
+            if (not _process) {
+                _message_view->stream() << "Invalid target process: attach to target using the 'attach' command";
+                return;
+            }
+
+            auto view = scan(_message_view, _process, config);
+            if (view) {
+                push(view);
+            }
 
         } else {
             using namespace tui::style;
@@ -317,12 +319,6 @@ int main(int argc, char* argv[])
         std::cerr << "error: " << e.what() << std::endl;
         return 1;
     }
-
-    // pid_t PID = 2197;
-    // auto process = std::make_shared<Process>(PID);
-    // Session session{process};
-    // session.scan(ScanNumber<ComparatorEqual<uint32_t>, 4>{109u});
-    // session.filter<FilterEqual>();
 
     TUI tui { TUIFlagColor };
     tui.attach(std::make_shared<App>(tui, target_pid));
