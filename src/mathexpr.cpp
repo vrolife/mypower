@@ -14,17 +14,25 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#include "expr.hpp"
+#include <sstream>
 
-#include "testcommon.hpp"
+#include "mathexpr.hpp"
+#include "mathexpr_parser.hpp"
+#include "mathexpr_tokenizer.hpp"
 
-using namespace expr;
+namespace mathexpr {
 
-int main(int argc, char *argv[])
+bool EXPR::_constant_optimal = true;
+
+struct ExprContext { };
+
+std::unique_ptr<ASTNode> parse(const std::string& str)
 {
-    assert(compile_and_run("0x123") == 0x123);
-    assert(compile_and_run("0b11") == 0x3);
-    assert(compile_and_run("0o755") == 493);
-    assert(compile_and_run("123") == 123);
-    return 0;
+    std::istringstream iss{str};
+    Tokenizer tokenizer{"<commandline>", iss, std::cout};
+    Parser<ExprContext> parser{};
+    ExprContext context{};
+    return parser.parse(context, tokenizer);
 }
+
+} // namespace dsl

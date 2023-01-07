@@ -19,32 +19,56 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <string>
 #include <vector>
+#include <memory>
+#include <optional>
 
-#include <sljitLir.h>
-
+namespace mathexpr {
+class ASTNode;
+} // namespace expr
 
 namespace dsl {
 
-class ExprCode {
+enum class ComparatorType {
+    EQ_Expr,
+    NE_Expr,
+    GT_Expr,
+    GE_Expr,
+    LT_Expr,
+    LE_Expr,
+    EQ_Range,
+    EQ_Mask,
+    NE_Range,
+    NE_Mask,
+    Boolean,
+    EQ,
+    NE,
+    GT,
+    GE,
+    LT,
+    LE,
+    None
+};
+
+class JITCode {
     void* _code;
     size_t _length;
 
 public:
-    ExprCode(void* code, size_t length)
+    JITCode(void* code, size_t length)
     : _code(code), _length(length)
     { }
-    ~ExprCode() {
+    ~JITCode() {
         this->free_code();
     }
-    ExprCode(const ExprCode&) = delete;
-    ExprCode& operator=(const ExprCode&) = delete;
-    ExprCode(ExprCode&& other) noexcept {
+    JITCode(const JITCode&) = delete;
+    JITCode& operator=(const JITCode&) = delete;
+    JITCode(JITCode&& other) noexcept {
         _code = other._code;
         _length = other._length;
         other._code = nullptr;
         other._length = 0;
     }
-    ExprCode& operator=(ExprCode&& other) noexcept {
+    JITCode& operator=(JITCode&& other) noexcept {
         this->free_code();
         _code = other._code;
         _length = other._length;
@@ -61,7 +85,28 @@ private:
     void free_code();
 };
 
-ExprCode compile_expr(const std::string& string);
+struct ComparatorExpression {
+    ComparatorType _comparator{ComparatorType::None};
+
+    std::unique_ptr<mathexpr::ASTNode> _expr1{};
+    std::unique_ptr<mathexpr::ASTNode> _expr2{};
+
+    std::optional<uintptr_t> _constant1{};
+    std::optional<uintptr_t> _constant2{};
+
+    ComparatorExpression() = default;
+    ComparatorExpression(ComparatorExpression&&) noexcept = default;
+    ComparatorExpression(const ComparatorExpression&) = delete;
+    ComparatorExpression& operator=(const ComparatorExpression&) = delete;
+    ComparatorExpression& operator=(ComparatorExpression&&) noexcept = default;
+    ~ComparatorExpression();
+
+    JITCode compile();
+};
+
+JITCode compile_math_expression(const std::string& string);
+
+ComparatorExpression parse_comparator_expression(const std::string& string);
 
 std::pair<std::string, std::vector<std::string>> parse_command(const std::string& string);
 

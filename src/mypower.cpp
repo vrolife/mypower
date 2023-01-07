@@ -104,7 +104,7 @@ public:
         _options_scan.add_options()("U32,I", po::value<bool>(), "32 bit unsigned integer");
         _options_scan.add_options()("U16,H", po::value<bool>(), "16 bit unsigned integer");
         _options_scan.add_options()("U8,B", po::value<bool>(), "8 bit unsigned integer");
-        _options_scan.add_options()("expr", po::value<bool>(), "value expression");
+        _options_scan.add_options()("expr", po::value<bool>(), "expression");
         _posiginal_scan.add("expr", 1);
 
         if (pid != -1) {

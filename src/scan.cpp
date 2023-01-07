@@ -14,9 +14,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include "dsl.hpp"
 #include "scanner.hpp"
 #include "scan.hpp"
-#include "comparator.hpp"
 
 namespace mypower {
 
@@ -52,6 +52,44 @@ public:
     }
 };
 
+template<typename T>
+void search(Session& session, dsl::ComparatorType opr, uintptr_t constant1, uintptr_t constant2, size_t step) {
+    switch(opr) {
+        case dsl::ComparatorType::EQ_Expr:
+            session.search(ScanComparator<ComparatorEqual<T>>{ {static_cast<T>(constant1)}, step });
+            break;
+        case dsl::ComparatorType::NE_Expr:
+            session.search(ScanComparator<ComparatorNotEqual<T>>{ {static_cast<T>(constant1)}, step });
+            break;
+        case dsl::ComparatorType::GT_Expr:
+            session.search(ScanComparator<ComparatorGreaterThen<T>>{ {static_cast<T>(constant1)}, step });
+            break;
+        case dsl::ComparatorType::GE_Expr:
+            session.search(ScanComparator<ComparatorGreaterOrEqual<T>>{ {static_cast<T>(constant1)}, step });
+            break;
+        case dsl::ComparatorType::LT_Expr:
+            session.search(ScanComparator<ComparatorLessThen<T>>{ {static_cast<T>(constant1)}, step });
+            break;
+        case dsl::ComparatorType::LE_Expr:
+            session.search(ScanComparator<ComparatorLessOrEqual<T>>{ {static_cast<T>(constant1)}, step });
+            break;
+        case dsl::ComparatorType::EQ_Mask:
+            session.search(ScanComparator<ComparatorMask<T>>{ { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+            break;
+        case dsl::ComparatorType::NE_Mask:
+            session.search(ScanComparator<ComparatorMask<T, true>>{ { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+            break;
+        case dsl::ComparatorType::EQ_Range:
+            session.search(ScanComparator<ComparatorRange<T>>{ { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+            break;
+        case dsl::ComparatorType::NE_Range:
+            session.search(ScanComparator<ComparatorRange<T, true>>{ { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+            break;
+        default:
+            assert(false && "Fast mode does not support this operator");
+    }
+}
+
 std::shared_ptr<ContentProvider> scan(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<Process>& process,
@@ -78,7 +116,7 @@ std::shared_ptr<ContentProvider> scan(
         {
             message_view->stream() 
                 << "Error:" << style::SetColor(style::ColorError) 
-                << "I nvalid date type. Example: search --int32 0x123";
+                << "Invalid date type. Example: search --int32 0x123";
             return nullptr;
         }
 
@@ -91,8 +129,61 @@ std::shared_ptr<ContentProvider> scan(
                 << " bytes";
         }
 
+        auto comparator = dsl::parse_comparator_expression(config._expr);
+        bool fast_mode{false};
+
+        switch(comparator._comparator) {
+            case dsl::ComparatorType::Boolean:
+                break;
+            case dsl::ComparatorType::EQ_Expr:
+            case dsl::ComparatorType::NE_Expr:
+            case dsl::ComparatorType::GT_Expr:
+            case dsl::ComparatorType::GE_Expr:
+            case dsl::ComparatorType::LT_Expr:
+            case dsl::ComparatorType::LE_Expr: {
+                if (comparator._constant1.has_value()) {
+                    fast_mode = true;
+                }
+                break;
+            }
+            case dsl::ComparatorType::EQ_Mask:
+            case dsl::ComparatorType::NE_Mask:
+            case dsl::ComparatorType::EQ_Range:
+            case dsl::ComparatorType::NE_Range: {
+                if (comparator._constant1.has_value() and comparator._constant2.has_value()) {
+                    fast_mode = true;
+                }
+                break;
+            }
+            case dsl::ComparatorType::EQ:
+            case dsl::ComparatorType::NE:
+            case dsl::ComparatorType::GT:
+            case dsl::ComparatorType::GE:
+            case dsl::ComparatorType::LT:
+            case dsl::ComparatorType::LE:
+                message_view->stream() 
+                    << "Error:" << style::SetColor(style::ColorError) 
+                    << "Scan mode does not support filter expression";
+                return nullptr;
+            case dsl::ComparatorType::None:
+                message_view->stream() 
+                    << "Error:" << style::SetColor(style::ColorError) 
+                    << "Invalid expression";
+                return nullptr;
+        }
+
         if (config._type_bits & MatchTypeBitI8) {
-            // view->_session.search(ScanNumber<typename Comparator>);
+            if (fast_mode) {
+                search<int8_t>(
+                    view->_session,
+                    comparator._comparator,
+                    comparator._constant1.value_or(0),
+                    comparator._constant2.value_or(0),
+                    config._step);
+            } else {
+                auto code = comparator.compile();
+                view->_session.search(ScanExpression<int8_t, dsl::JITCode>{ std::move(code), config._step });
+            }
         }
     }
     return view;

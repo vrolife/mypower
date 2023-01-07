@@ -1,42 +1,42 @@
 
-# AddressExpr
+# MathExpression
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.flex
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.cpp
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/expr_parser.hpp
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.hpp
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.flex
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.cpp
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_parser.hpp
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.hpp
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/dsl.py
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/dsl.py 
-        --classname AddressExpr
-        --namespace expr
-        --include expr.hpp
-        --tokenizer ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.hpp 
-        --parser ${CMAKE_CURRENT_BINARY_DIR}/expr_parser.hpp
-        --flex ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.flex
+        --classname MathExpression
+        --namespace mathexpr
+        --include mathexpr.hpp
+        --tokenizer ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.hpp 
+        --parser ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_parser.hpp
+        --flex ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.flex
     COMMAND ${HOST_PROJECT_INSTALL_DIR}/bin/flex 
-        -o ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.cpp 
-        ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.flex
+        -o ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.cpp 
+        ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.flex
 )
 
-# Comparator
+# ComparatorExpression
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.flex
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.cpp
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/comparator_parser.hpp
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.hpp
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.flex
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.cpp
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/compexpr_parser.hpp
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.hpp
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/dsl.py
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/dsl.py 
-        --classname Comparator
-        --namespace comparator
-        --include comparator.hpp
-        --tokenizer ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.hpp 
-        --parser ${CMAKE_CURRENT_BINARY_DIR}/comparator_parser.hpp
-        --flex ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.flex
+        --classname ComparatorExpression
+        --namespace compexpr
+        --include compexpr.hpp
+        --tokenizer ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.hpp 
+        --parser ${CMAKE_CURRENT_BINARY_DIR}/compexpr_parser.hpp
+        --flex ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.flex
     COMMAND ${HOST_PROJECT_INSTALL_DIR}/bin/flex 
-        -o ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.cpp 
-        ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.flex
+        -o ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.cpp 
+        ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.flex
 )
 
 # CommandParser
@@ -59,13 +59,13 @@ add_custom_command(
         ${CMAKE_CURRENT_BINARY_DIR}/cmd_tokenizer.flex
 )
 
-add_library(dsl STATIC expr.cpp cmd.cpp dsl.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/expr_parser.hpp
-    ${CMAKE_CURRENT_BINARY_DIR}/expr_tokenizer.hpp
-    ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/comparator_parser.hpp
-    ${CMAKE_CURRENT_BINARY_DIR}/comparator_tokenizer.hpp
+add_library(dsl STATIC mathexpr.cpp cmd.cpp dsl.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_parser.hpp
+    ${CMAKE_CURRENT_BINARY_DIR}/mathexpr_tokenizer.hpp
+    ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/compexpr_parser.hpp
+    ${CMAKE_CURRENT_BINARY_DIR}/compexpr_tokenizer.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/cmd_tokenizer.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/cmd_parser.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/cmd_tokenizer.hpp
@@ -87,8 +87,6 @@ target_include_directories(dsl PUBLIC
 )
 
 add_dependencies(dsl flex flex_host)
-
-mypower_scan_test(PATTERN "test_*" LIBRARIES dsl)
 
 add_executable(chproc chproc.cpp)
 

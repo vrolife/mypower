@@ -11,7 +11,7 @@ class MismatchError(Exception):
 def throw(e, *args):
     raise e(*args)
 
-class AddressExpr(metaclass=Parser):
+class MathExpression(metaclass=Parser):
     HEX = Token(r'0x[0-9a-fA-F]+',
                 action=lambda ctx: int(ctx.text[2:], 16))
     OCT = Token(r'0o[0-7]+',
@@ -55,7 +55,7 @@ class AddressExpr(metaclass=Parser):
 
     _ = Precedence.Left
     EQ = Token(r'=')
-    NE = Token(r'=!')
+    NE = Token(r'!=')
 
     _ = Precedence.Left
     GT = Token(r'>')
@@ -89,7 +89,7 @@ class AddressExpr(metaclass=Parser):
         AND, OR, NOT, XOR,
         EQ, NE, GT, GE, LT, LE, 
         LSHIFT, RSHIFT, 
-        QUESTION, COLON, LSQ, RSQ, LBK, RBK,
+        QUESTION, COLON, LSQ, RSQ, LBK, RBK, COMMA,
         MOD, PLUS, MINUS, TIMES, DIVIDE, 
         LPAR, RPAR, REFERENCE, MISMATCH)
 
@@ -180,11 +180,24 @@ class AddressExpr(metaclass=Parser):
         pass
 
 
-class Comparator(metaclass=Parser):
+class ComparatorExpression(metaclass=Parser):
 
-    _ = AddressExpr.addr_expr_scanner
+    _ = MathExpression.addr_expr_scanner
 
-    @Rule(AddressExpr.EQ, AddressExpr.EXPR)
+    @Rule(MathExpression.EQ, MathExpression.EXPR)
+    @Rule(MathExpression.NE, MathExpression.EXPR)
+    @Rule(MathExpression.GT, MathExpression.EXPR)
+    @Rule(MathExpression.GE, MathExpression.EXPR)
+    @Rule(MathExpression.LT, MathExpression.EXPR)
+    @Rule(MathExpression.LE, MathExpression.EXPR)
+    @staticmethod
+    def COMPARATOR(self, _, expr):
+        pass
+
+    @Rule(MathExpression.EQ, MathExpression.LSQ, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RSQ)
+    @Rule(MathExpression.EQ, MathExpression.LBK, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RBK)
+    @Rule(MathExpression.NE, MathExpression.LSQ, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RSQ)
+    @Rule(MathExpression.NE, MathExpression.LBK, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RBK)
     @staticmethod
     def COMPARATOR(self, _, expr):
         pass
@@ -272,6 +285,6 @@ class CommandParser(metaclass=Parser):
 
 if __name__ == '__main__':
     from playlang.cplusplus import generate
-    generate(AddressExpr)
+    generate(MathExpression)
     generate(CommandParser)
-    generate(Comparator)
+    generate(ComparatorExpression)

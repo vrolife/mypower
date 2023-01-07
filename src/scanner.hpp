@@ -26,9 +26,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include <cassert>
 #include <sstream>
 
-#include "operators.hpp"
+#include "comparator.hpp"
 #include "process.hpp"
 #include "matchvalue.hpp"
 
@@ -245,7 +246,7 @@ public:
 };
 
 template <typename Comparator>
-class ScanNumber {
+class ScanComparator {
     typedef typename Comparator::Type Type;
     static_assert(std::is_integral<Type>::value or std::is_floating_point<Type>::value, "Number only");
 
@@ -253,12 +254,10 @@ class ScanNumber {
     size_t _step;
 
 public:
-    ScanNumber(Comparator&& comparator, size_t step)
+    ScanComparator(Comparator&& comparator, size_t step)
         : _comparator { comparator }, _step(step)
     {
-        if (this->step() == 0) {
-            throw std::logic_error("Invalid step");
-        }
+        assert(_step > 0);
     }
 
     constexpr size_t step() const { return _step; }
@@ -306,6 +305,37 @@ public:
                             addr + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin)),
                             value));
                 }
+            }
+        }
+    }
+};
+
+template<typename T, typename Callable>
+class ScanExpression {
+    typedef T Type;
+    Callable _callable;
+    size_t _step;
+public:
+    ScanExpression(Callable&& callable, size_t step)
+        : _callable { std::move(callable) }, _step(step)
+    {
+        assert(_step > 0);
+    }
+
+    constexpr size_t step() const { return _step; }
+
+    template <typename Callback>
+    void operator()(VMAddress addr_begin, void* buffer_begin, void* buffer_end, Callback&& callback)
+    {
+        const auto step = this->step();
+        auto begin = reinterpret_cast<uintptr_t>(buffer_begin);
+        auto end = reinterpret_cast<uintptr_t>(buffer_end);
+        for (uintptr_t iter = begin; iter != end; iter += step) {
+            Type value;
+            memcpy(&value, reinterpret_cast<void*>(iter), sizeof(Type));
+            auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
+            if (UNLIKELY(_callable(0, value, address.get()))) {
+                callback(MatchValue::create(address, value));
             }
         }
     }

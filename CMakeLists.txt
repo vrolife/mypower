@@ -16,7 +16,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/cmake/scan_test.cmake)
 add_subdirectory(external)
 add_subdirectory(examples)
 add_subdirectory(src)
-add_subdirectory(dsl)
 add_subdirectory(tui)
 
 add_subdirectory(tests)

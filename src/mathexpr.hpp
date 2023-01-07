@@ -14,8 +14,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#ifndef __expr_hpp__
-#define __expr_hpp__
+#ifndef __mathexpr_hpp__
+#define __mathexpr_hpp__
 
 #include <memory>
 #include <unordered_map>
@@ -24,7 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "playlang/playlang.hpp"
 
-namespace expr {
+namespace mathexpr {
 
 using namespace playlang;
 
@@ -107,6 +107,7 @@ struct NUMBER : public Symbol<uintptr_t> {
 struct Compiler {
     size_t _local_size{0};
     std::unordered_map<std::string, uintptr_t> _local_vars{};
+    size_t _reference_count{0};
 
     struct sljit_compiler* _compiler{nullptr};
 
@@ -127,6 +128,7 @@ struct Compiler {
         if (iter == _local_vars.end()) {
             throw SyntaxError(std::string("Unknown variable: ") + name);
         }
+        _reference_count += 1;
         return iter->second;
     }
 
@@ -140,7 +142,12 @@ struct ASTNode {
     virtual void gencode(Compiler& compiler, size_t depth) = 0;
 };
 
-struct ASTNumber : ASTNode {
+struct ASTRetarget : ASTNode {
+    sljit_s32 _target{SLJIT_R0};
+
+};
+
+struct ASTNumber : ASTRetarget {
     uintptr_t _value;
     ASTNumber(uintptr_t value): _value(value) { }
     
@@ -149,7 +156,23 @@ struct ASTNumber : ASTNode {
     }
 
     void gencode(Compiler& compiler, size_t depth) override {
-        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, _value);
+        sljit_emit_op1(compiler, SLJIT_MOV, _target, 0, SLJIT_IMM, _value);
+    }
+};
+
+struct ASTRef : ASTRetarget {
+    std::string _name;
+
+    ASTRef(std::string&& name)
+    : _name(std::move(name)) { }
+
+    size_t depth(size_t depth) override {
+        return depth;
+    }
+    
+    void gencode(Compiler& compiler, size_t depth) override {
+        auto offset = compiler.reference(_name);
+        sljit_emit_op1(compiler, SLJIT_MOV, _target, 0, SLJIT_MEM1(SLJIT_SP), offset);
     }
 };
 
@@ -177,23 +200,36 @@ struct ASTOpr2 : ASTNode {
         return std::max(_lexpr->depth(depth+1), _rexpr->depth(depth));
     }
 
-    void gencode(Compiler& compiler, size_t depth) override {
-        auto offset = (depth + compiler._local_size) * sizeof(uintptr_t);
-        _rexpr->gencode(compiler, depth);
-        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R0, 0);
-        _lexpr->gencode(compiler, depth + 1);
-        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_SP), offset);
+    void gencode(Compiler& compiler, size_t depth) override 
+    {
+        ASTRetarget* retarget1 = dynamic_cast<ASTRetarget*>(_lexpr.get());
+        ASTRetarget* retarget2 = dynamic_cast<ASTRetarget*>(_rexpr.get());
+        if (retarget2) {
+            retarget2->_target = SLJIT_R1;
+            _lexpr->gencode(compiler, depth);
+            _rexpr->gencode(compiler, depth);
+        } else if (retarget1) {
+            _rexpr->gencode(compiler, depth);
+            sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_R0, 0);
+            _lexpr->gencode(compiler, depth);
+        } else {
+            auto offset = (depth + compiler._local_size) * sizeof(uintptr_t);
+            _rexpr->gencode(compiler, depth);
+            sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R0, 0);
+            _lexpr->gencode(compiler, depth + 1);
+            sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_SP), offset);
+        }
 
         switch(_opr) {
             case "/"_opr:
-                sljit_emit_op0(compiler, SLJIT_DIV_SW);
+                sljit_emit_op0(compiler, SLJIT_DIV_UW);
                 break;
             case "%"_opr:
-                sljit_emit_op0(compiler, SLJIT_DIVMOD_SW);
+                sljit_emit_op0(compiler, SLJIT_DIVMOD_UW);
                 sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_R1, 0);
                 break;
             case "*"_opr:
-                sljit_emit_op0(compiler, SLJIT_LMUL_SW);
+                sljit_emit_op0(compiler, SLJIT_LMUL_UW);
                 break;
             case "+"_opr:
                 sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
@@ -253,7 +289,7 @@ struct ASTOpr2 : ASTNode {
             case ">="_opr: 
             case "<"_opr: 
             case "<="_opr: 
-            case "=="_opr: 
+            case "="_opr: 
             case "!="_opr: 
             {
                 int op;
@@ -262,7 +298,7 @@ struct ASTOpr2 : ASTNode {
                     case ">="_opr: op = SLJIT_GREATER_EQUAL; break;
                     case "<"_opr: op = SLJIT_LESS; break;
                     case "<="_opr: op = SLJIT_LESS_EQUAL; break;
-                    case "=="_opr: op = SLJIT_EQUAL; break;
+                    case "="_opr: op = SLJIT_EQUAL; break;
                     case "!="_opr: op = SLJIT_NOT_EQUAL; break;
                     default: break;
                 }
@@ -280,6 +316,8 @@ struct ASTOpr2 : ASTNode {
                 sljit_set_label(out, sljit_emit_label(compiler));
                 break;
             }
+            default:
+                assert(false && "Unsupported operator");
         }
     }
 };
@@ -348,89 +386,279 @@ struct ASTOpr3 : ASTNode {
     }
 };
 
-struct ASTRef : ASTNode {
-    std::string _name;
+struct ASTRange : ASTNode {
+    std::unique_ptr<ASTNode> _expr;
+    std::unique_ptr<ASTNode> _min;
+    std::unique_ptr<ASTNode> _max;
+    bool _reverse;
 
-    ASTRef(std::string&& name)
-    : _name(std::move(name)) { }
+    ASTRange(std::unique_ptr<ASTNode>&& expr, std::unique_ptr<ASTNode>&& min, std::unique_ptr<ASTNode>&& max, bool reverse=false)
+    : _expr(std::move(expr))
+    , _min(std::move(min))
+    , _max(std::move(max))
+    , _reverse(!!reverse)
+    { }
 
     size_t depth(size_t depth) override {
-        return depth;
+        return std::max(_expr->depth(depth), std::max(_min->depth(depth+1), _max->depth(depth+2)));
     }
-    
+
     void gencode(Compiler& compiler, size_t depth) override {
-        auto offset = compiler.reference(_name);
-        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), offset);
+        auto offset = (depth + compiler._local_size) * sizeof(uintptr_t);
+        _expr->gencode(compiler, depth);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R0, 0);
+        _min->gencode(compiler, depth + 1);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), offset + sizeof(uintptr_t), SLJIT_R0, 0);
+        _max->gencode(compiler, depth + 2);
+
+        // R1 = expr
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_SP), offset);
+        // if R1 > R0(max) then goto oor
+        auto* oor = sljit_emit_cmp(compiler, SLJIT_GREATER, SLJIT_R1, 0, SLJIT_R0, 0);
+        // R0 = min
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_MEM1(SLJIT_SP), offset + sizeof(uintptr_t));
+        // if R1 < R0(min) then goto oor2
+        auto* oor2 = sljit_emit_cmp(compiler, SLJIT_LESS, SLJIT_R1, 0, SLJIT_R0, 0);
+        // R0 = 1
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, not _reverse);
+        // goto out
+        auto* out = sljit_emit_jump(compiler, SLJIT_JUMP);
+
+        sljit_set_label(oor, sljit_emit_label(compiler));
+        sljit_set_label(oor2, sljit_emit_label(compiler));
+
+        // R0 = 0
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, _reverse);
+
+        sljit_set_label(out, sljit_emit_label(compiler));
     }
 };
 
-struct EXPR : public Symbol<std::unique_ptr<ASTNode>> {
+struct ASTMask : ASTNode {
+    std::unique_ptr<ASTNode> _expr;
+    std::unique_ptr<ASTNode> _value;
+    std::unique_ptr<ASTNode> _mask;
+    bool _reverse;
+
+    ASTMask(std::unique_ptr<ASTNode>&& expr, std::unique_ptr<ASTNode>&& value, std::unique_ptr<ASTNode>&& mask, bool reverse=false)
+    : _expr(std::move(expr))
+    , _value(std::move(value))
+    , _mask(std::move(mask))
+    , _reverse(!!reverse)
+    { }
+
+    size_t depth(size_t depth) override {
+        return std::max(_value->depth(depth), std::max(_mask->depth(depth+1), _expr->depth(depth+2)));
+    }
+
+    void gencode(Compiler& compiler, size_t depth) override {
+        auto offset = (depth + compiler._local_size) * sizeof(uintptr_t);
+        _value->gencode(compiler, depth);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), offset, SLJIT_R0, 0);
+        _mask->gencode(compiler, depth + 1);
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_MEM1(SLJIT_SP), offset + sizeof(uintptr_t), SLJIT_R0, 0);
+
+        // R0 = expr
+        _expr->gencode(compiler, depth + 2);
+        // R1 = value
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R1, 0, SLJIT_MEM1(SLJIT_SP), offset);
+        // R2 = mask
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R2, 0, SLJIT_MEM1(SLJIT_SP), offset + sizeof(uintptr_t));
+        // R0 &= mask
+        sljit_emit_op2(compiler, SLJIT_AND, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R2, 0);
+        // R1 &= mask
+        sljit_emit_op2(compiler, SLJIT_AND, SLJIT_R1, 0, SLJIT_R1, 0, SLJIT_R2, 0);
+
+        // if R0(expr) != R1(max) then goto ne
+        auto* ne = sljit_emit_cmp(compiler, SLJIT_NOT_EQUAL, SLJIT_R0, 0, SLJIT_R1, 0);
+        // R0 = 1
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, not _reverse);
+        // goto out
+        auto* out = sljit_emit_jump(compiler, SLJIT_JUMP);
+
+        sljit_set_label(ne, sljit_emit_label(compiler));
+        // R0 = 0
+        sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_IMM, _reverse);
+
+        sljit_set_label(out, sljit_emit_label(compiler));
+    }
+};
+
+struct EXPR : public Symbol<std::unique_ptr<ASTNode>> 
+{
+    static bool _constant_optimal;
+
+    void opt1() {
+        if (not _constant_optimal) {
+            return;
+        }
+        auto* opr1 = dynamic_cast<ASTOpr1*>(value().get());
+        assert(opr1);
+        auto* num = dynamic_cast<ASTNumber*>(opr1->_expr.get());
+        if (num == nullptr) {
+            return;
+        }
+
+        switch(opr1->_opr) {
+            case "-"_opr:
+                value() = std::make_unique<ASTNumber>(-num->_value);
+                break;
+            case "~"_opr:
+                value() = std::make_unique<ASTNumber>(~num->_value);
+                break;
+            case "!"_opr: {
+                value() = std::make_unique<ASTNumber>(!num->_value);
+                break;
+            }
+        }
+    }
+
+    void opt2() {
+        if (not _constant_optimal) {
+            return;
+        }
+        auto* opr2 = dynamic_cast<ASTOpr2*>(value().get());
+        assert(opr2);
+        auto* num1 = dynamic_cast<ASTNumber*>(opr2->_lexpr.get());
+        auto* num2 = dynamic_cast<ASTNumber*>(opr2->_rexpr.get());
+        if (num1 == nullptr or num2 == nullptr) {
+            return;
+        }
+
+        switch(opr2->_opr) {
+            case "/"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value / num2->_value);
+                break;
+            case "%"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value % num2->_value);
+                break;
+            case "*"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value * num2->_value);
+                break;
+            case "+"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value + num2->_value);
+                break;
+            case "-"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value - num2->_value);
+                break;
+            case "&"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value & num2->_value);
+                break;
+            case "|"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value | num2->_value);
+                break;
+            case "<<"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value << num2->_value);
+                break;
+            case ">>"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value >> num2->_value);
+                break;
+            case "&&"_opr:
+                value() = std::make_unique<ASTNumber>(num1->_value && num2->_value);
+                break;
+            case "||"_opr: 
+                value() = std::make_unique<ASTNumber>(num1->_value || num2->_value);
+                break;
+            case ">"_opr: 
+                value() = std::make_unique<ASTNumber>(num1->_value > num2->_value);
+                break;
+            case ">="_opr: 
+                value() = std::make_unique<ASTNumber>(num1->_value >= num2->_value);
+                break;
+            case "<"_opr: 
+                value() = std::make_unique<ASTNumber>(num1->_value < num2->_value);
+                break;
+            case "<="_opr: 
+                value() = std::make_unique<ASTNumber>(num1->_value <= num2->_value);
+                break;
+            case "="_opr: 
+                value() = std::make_unique<ASTNumber>(num1->_value == num2->_value);
+                break;
+            case "!="_opr: 
+                value() = std::make_unique<ASTNumber>(num1->_value != num2->_value);
+                break;
+        }
+    }
+
+    void opt3() {
+        if (not _constant_optimal) {
+            return;
+        }
+        auto* opr3 = dynamic_cast<ASTOpr3*>(value().get());
+        assert(opr3);
+        auto* cond = dynamic_cast<ASTNumber*>(opr3->_cond.get());
+        if (cond == nullptr) {
+            return;
+        }
+        value() = cond->_value ? std::move(opr3->_expr1) : std::move(opr3->_expr2);
+    }
+
     EXPR(EXPR& expr1, DIVIDE&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(), "/"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, MOD&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "%"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, TIMES&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "*"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, PLUS&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "+"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, MINUS&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "-"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, AND&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "&"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, OR&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "|"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, XOR&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "^"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, LAND&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "&&"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, LOR&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "||"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, GT&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  ">"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, GE&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  ">="_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, LT&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "<"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, LE&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "<="_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, EQ&, EXPR& expr2)
-    :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "=="_opr, expr2.release()))
-    { };
+    :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "="_opr, expr2.release()))
+    { opt2(); };
     EXPR(EXPR& expr1, NE&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "!="_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, LSHIFT&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  "<<"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(EXPR& expr1, RSHIFT&, EXPR& expr2)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr2>(expr1.release(),  ">>"_opr, expr2.release()))
-    { };
+    { opt2(); };
     EXPR(LPAR&, EXPR& expr, RPAR&)
     :Symbol<std::unique_ptr<ASTNode>>(expr.release())
     { };
     EXPR(MINUS&, EXPR& expr)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr1>("-"_opr, expr.release()))
-    { };
+    { opt1(); };
     EXPR(NOT&, EXPR& expr)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr1>("~"_opr, expr.release()))
-    { };
+    { opt1(); };
     EXPR(LNOT&, EXPR& expr)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr1>("!"_opr, expr.release()))
-    { };
+    { opt1(); };
     EXPR(REFERENCE& ref)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTRef>(ref.release()))
     { };
@@ -439,11 +667,11 @@ struct EXPR : public Symbol<std::unique_ptr<ASTNode>> {
     { };
     EXPR(EXPR& expr1, QUESTION&, EXPR& expr2, COLON&, EXPR& expr3)
     :Symbol<std::unique_ptr<ASTNode>>(std::make_unique<ASTOpr3>(expr1.release(), expr2.release(), expr3.release()))
-    { };
+    { opt3(); };
 };
 
 std::unique_ptr<ASTNode> parse(const std::string& str);
 
-} // namespace expr
+} // namespace mathexpr
 
 #endif

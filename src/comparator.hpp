@@ -14,108 +14,335 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#include "expr.hpp"
+#ifndef __comparator_hpp__
+#define __comparator_hpp__
 
-namespace comparator {
-using namespace expr;
-using namespace playlang;
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 
-enum class Operator {
-    None,
-    EQ,
-    NE,
-    GT,
-    GE,
-    LT,
-    LE,
-    Boolean,
-    EQ_Range,
-    EQ_Mask,
-    NE_Range,
-    NE_Mask,
+namespace mypower {
+
+template <typename T, bool Xor=false>
+class ComparatorMask {
+    T _target;
+    T _mask;
+
+public:
+    typedef T Type;
+
+    ComparatorMask(T target, T mask)
+        : _target(target & mask)
+        , _mask(mask)
+    {
+    }
+
+    inline bool operator()(const T& value) const
+    {
+        return ((value & _mask) == _target) ^ Xor;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
 };
 
-struct Comparator {
-    Operator _operator{Operator::None};
-    std::unique_ptr<ASTNode> _expr1{};
-    std::unique_ptr<ASTNode> _expr2{};
+template <typename T, bool Xor=false>
+class ComparatorRange {
+    T _max;
+    T _min;
 
-    Comparator() = default;
+public:
+    typedef T Type;
+
+    ComparatorRange(T max, T min)
+        : _max(max)
+        , _min(min)
+    {
+    }
+
+    inline bool operator()(const T& value) const
+    {
+        return (value >= _min and value <= _max) ^ Xor;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
 };
 
-struct COMPARATOR : public Symbol<Comparator> {
-    COMPARATOR(EQ&, EXPR& expr)
-    :Symbol<Comparator>({})
+template <>
+class ComparatorRange<uint8_t*> {
+public:
+    inline bool operator()(const uint8_t* value) const
     {
-        this->value()._operator = Operator::EQ;
-        this->value()._expr1 = expr.release();
-    };
-    COMPARATOR(NE&, EXPR& expr)
-    :Symbol<Comparator>({})
+        return true;
+    }
+
+    inline bool operator()(...) const
     {
-        this->value()._operator = Operator::NE;
-        this->value()._expr1 = expr.release();
-    };
-    COMPARATOR(GT&, EXPR& expr)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::GT;
-        this->value()._expr1 = expr.release();
-    };
-    COMPARATOR(GE&, EXPR& expr)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::GE;
-        this->value()._expr1 = expr.release();
-    };
-    COMPARATOR(LT&, EXPR& expr)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::LT;
-        this->value()._expr1 = expr.release();
-    };
-    COMPARATOR(LE&, EXPR& expr)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::LE;
-        this->value()._expr1 = expr.release();
-    };
-    COMPARATOR(EQ&, LSQ&, EXPR& min, COMMA&, EXPR& max, RSQ&)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::EQ_Range;
-        this->value()._expr1 = min.release();
-        this->value()._expr2 = max.release();
-    };
-    COMPARATOR(EQ&, LBK&, EXPR& value, COMMA&, EXPR& mask, RBK&)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::EQ_Mask;
-        this->value()._expr1 = value.release();
-        this->value()._expr2 = mask.release();
-        
-    };
-    COMPARATOR(NE&, LSQ&, EXPR& min, COMMA&, EXPR& max, RSQ&)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::EQ_Range;
-        this->value()._expr1 = min.release();
-        this->value()._expr2 = max.release();
-    };
-    COMPARATOR(NE&, LBK&, EXPR& value, COMMA&, EXPR& mask, RBK&)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::EQ_Mask;
-        this->value()._expr1 = value.release();
-        this->value()._expr2 = mask.release();
-        
-    };
-    COMPARATOR(EXPR& expr)
-    :Symbol<Comparator>({})
-    {
-        this->value()._operator = Operator::Boolean;
-        this->value()._expr1 = expr.release();
-    };
+        return true;
+    }
 };
 
-} // namespace comparator
+template <typename T>
+class ComparatorEqual {
+    T _rhs;
+
+public:
+    typedef T Type;
+
+    ComparatorEqual(T rhs)
+        : _rhs(rhs)
+    {
+    }
+
+    inline bool operator()(const T& value) const { return value == _rhs; }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <>
+class ComparatorEqual<uint8_t*> {
+    uint8_t* _rhs;
+    size_t _size;
+
+public:
+    typedef uint8_t* Type;
+
+    ComparatorEqual(uint8_t* rhs, size_t size)
+        : _rhs(rhs)
+        , _size(size)
+    {
+    }
+
+    inline bool operator()(const uint8_t* value) const
+    {
+        return memcmp(value, _rhs, _size) == 0;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <typename T>
+class ComparatorNotEqual {
+    T _rhs;
+
+public:
+    typedef T Type;
+
+    ComparatorNotEqual(T rhs)
+        : _rhs(rhs)
+    {
+    }
+
+    inline bool operator()(const T& value) const { return value != _rhs; }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <>
+class ComparatorNotEqual<uint8_t*> {
+    uint8_t* _rhs;
+    size_t _size;
+
+public:
+    typedef uint8_t* Type;
+
+    ComparatorNotEqual(uint8_t* rhs, size_t size)
+        : _rhs(rhs)
+        , _size(size)
+    {
+    }
+
+    inline bool operator()(const uint8_t* value) const
+    {
+        return memcmp(value, _rhs, _size) != 0;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <typename T>
+class ComparatorGreaterThen {
+    T _rhs;
+
+public:
+    typedef T Type;
+
+    ComparatorGreaterThen(T rhs)
+        : _rhs(rhs)
+    {
+    }
+
+    inline bool operator()(const T& value) const { return value > _rhs; }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <>
+class ComparatorGreaterThen<uint8_t*> {
+public:
+    inline bool operator()(const uint8_t* value) const
+    {
+        return true;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <typename T>
+class ComparatorLessThen {
+    T _rhs;
+
+public:
+    typedef T Type;
+
+    ComparatorLessThen(T rhs)
+        : _rhs(rhs)
+    {
+    }
+
+    inline bool operator()(const T& value) const { return value < _rhs; }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <>
+class ComparatorLessThen<uint8_t*> {
+public:
+    inline bool operator()(const uint8_t* value) const
+    {
+        return true;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <typename T>
+class ComparatorGreaterOrEqual {
+    T _rhs;
+
+public:
+    typedef T Type;
+
+    ComparatorGreaterOrEqual(T rhs)
+        : _rhs(rhs)
+    {
+    }
+
+    inline bool operator()(const T& value) const { return value >= _rhs; }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <>
+class ComparatorGreaterOrEqual<uint8_t*> {
+public:
+    inline bool operator()(const uint8_t* value) const
+    {
+        return true;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <typename T>
+class ComparatorLessOrEqual {
+    T _rhs;
+
+public:
+    typedef T Type;
+
+    ComparatorLessOrEqual(T rhs)
+        : _rhs(rhs)
+    {
+    }
+
+    inline bool operator()(const T& value) const { return value <= _rhs; }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+template <>
+class ComparatorLessOrEqual<uint8_t*> {
+public:
+    inline bool operator()(const uint8_t* value) const
+    {
+        return true;
+    }
+
+    inline bool operator()(...) const
+    {
+        return true;
+    }
+};
+
+struct FilterEqual {
+    template <typename T>
+    using Comparator = ComparatorEqual<T>;
+};
+
+struct FilterNotEqual {
+    template <typename T>
+    using Comparator = ComparatorNotEqual<T>;
+};
+
+struct FilterGreaterThen {
+    template <typename T>
+    using Comparator = ComparatorGreaterThen<T>;
+};
+
+struct FilterGreaterOrEqual {
+    template <typename T>
+    using Comparator = ComparatorGreaterOrEqual<T>;
+};
+
+struct FilterLessThen {
+    template <typename T>
+    using Comparator = ComparatorLessThen<T>;
+};
+
+struct FilterLessOrEqual {
+    template <typename T>
+    using Comparator = ComparatorLessOrEqual<T>;
+};
+
+} // namespace mypower
+
+#endif

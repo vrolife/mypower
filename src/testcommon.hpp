@@ -21,7 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 inline
 uintptr_t compile_and_run(const std::string& code, uintptr_t old=0, uintptr_t _new=0, uintptr_t address=0) {
-    auto exprcode = dsl::compile_expr(code);
+    auto exprcode = dsl::compile_math_expression(code);
     return exprcode(old, _new, address);
 }
 
