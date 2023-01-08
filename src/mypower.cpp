@@ -68,7 +68,8 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
 
     std::shared_ptr<Process> _process;
 
-    std::vector<SessionView> _sessions {};
+    std::vector<std::shared_ptr<SessionView>> _session_views {};
+    std::shared_ptr<SessionView> _current_session_view{};
 
     po::options_description _options_attach { "Allowed options" };
     po::positional_options_description _posiginal_attach {};
@@ -78,6 +79,12 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
 
     po::options_description _options_scan { "Allowed options" };
     po::positional_options_description _posiginal_scan {};
+
+    po::options_description _options_filter { "Allowed options" };
+    po::positional_options_description _posiginal_filter {};
+
+    po::options_description _options_update { "Allowed options" };
+    po::positional_options_description _posiginal_update {};
 
 public:
     App(TUI& tui, pid_t pid)
@@ -95,17 +102,25 @@ public:
         _posiginal_findps.add("filter", 1);
 
         _options_scan.add_options()("help", "show help message");
-        _options_scan.add_options()("step,s", po::value<bool>(), "step size");
-        _options_scan.add_options()("I64,q", po::value<bool>(), "64 bit integer");
-        _options_scan.add_options()("I32,i", po::value<bool>(), "32 bit integer");
-        _options_scan.add_options()("I16,h", po::value<bool>(), "16 bit integer");
-        _options_scan.add_options()("I8,b", po::value<bool>(), "8 bit integer");
-        _options_scan.add_options()("U64,Q", po::value<bool>(), "64 bit unsigned integer");
-        _options_scan.add_options()("U32,I", po::value<bool>(), "32 bit unsigned integer");
-        _options_scan.add_options()("U16,H", po::value<bool>(), "16 bit unsigned integer");
-        _options_scan.add_options()("U8,B", po::value<bool>(), "8 bit unsigned integer");
-        _options_scan.add_options()("expr", po::value<bool>(), "expression");
+        _options_scan.add_options()("step,s", po::bool_switch()->default_value(false), "step size");
+        _options_scan.add_options()("I64,q", po::bool_switch()->default_value(false), "64 bit integer");
+        _options_scan.add_options()("I32,i", po::bool_switch()->default_value(false), "32 bit integer");
+        _options_scan.add_options()("I16,h", po::bool_switch()->default_value(false), "16 bit integer");
+        _options_scan.add_options()("I8,b", po::bool_switch()->default_value(false), "8 bit integer");
+        _options_scan.add_options()("U64,Q", po::bool_switch()->default_value(false), "64 bit unsigned integer");
+        _options_scan.add_options()("U32,I", po::bool_switch()->default_value(false), "32 bit unsigned integer");
+        _options_scan.add_options()("U16,H", po::bool_switch()->default_value(false), "16 bit unsigned integer");
+        _options_scan.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
+        _options_scan.add_options()("expr", po::value<std::string>(), "scan expression");
         _posiginal_scan.add("expr", 1);
+
+        _options_filter.add_options()("help", "show help message");
+        _options_filter.add_options()("expr,f", po::value<std::string>(), "filter expression");
+        _posiginal_filter.add("expr", 1);
+
+        _options_filter.add_options()("help", "show help message");
+        _options_filter.add_options()("session,s", po::value<std::string>(), "filter expression");
+        _posiginal_filter.add("session", 1);
 
         if (pid != -1) {
             _process = std::make_shared<Process>(pid);
@@ -142,6 +157,38 @@ public:
         }
 
         _tui.show(_view_stack.top());
+        _view_stack.top()->tui_notify_changed();
+    }
+
+    void complete() {
+        auto& editor = _tui.editor();
+        const auto& buffer = editor.buffer();
+        
+        static std::vector<std::string> keyworks = {
+          "help",
+          "exit",
+          "msg", "mesg", "message",
+          "history",
+          "back",
+          "attach",
+          "selfattach",
+          "ps", "findps", "findpsex",
+          "test",
+          "scan",
+          "filter",
+          "update"
+        };
+
+        if (buffer.empty()) {
+            return;
+        }
+
+        for (auto& str : keyworks) {
+            if (str.find(buffer) == 0) {
+                _tui.editor().update(str, -1);
+                break;
+            }
+        }
     }
 
     bool tui_key(int key) override
@@ -151,6 +198,9 @@ public:
         case KEY_DOWN:
             _history_view->history_key(key, _tui.editor());
             break;
+        case '\t':
+            complete();
+            return true;
         }
         return false;
     }
@@ -204,8 +254,10 @@ public:
                 return;
             }
 
+            _message_view->stream() << "Attach process " << pid;
+
             pop(true);
-            _sessions.clear();
+            _session_views.clear();
             _process = std::make_shared<Process>(pid);
 
         } else if (command == "ps") {
@@ -252,14 +304,14 @@ public:
                 if (vm.count("expr")) {
                     config._expr = vm["expr"].as<std::string>();
                 }
-                config._type_bits |= vm.count("I8") > 0 ? MatchTypeBitI8 : 0;
-                config._type_bits |= vm.count("I16") > 0 ? MatchTypeBitI16 : 0;
-                config._type_bits |= vm.count("I32") > 0 ? MatchTypeBitI32 : 0;
-                config._type_bits |= vm.count("I64") > 0 ? MatchTypeBitI64 : 0;
-                config._type_bits |= vm.count("U8") > 0 ? MatchTypeBitU8 : 0;
-                config._type_bits |= vm.count("U16") > 0 ? MatchTypeBitU16 : 0;
-                config._type_bits |= vm.count("U32") > 0 ? MatchTypeBitU32 : 0;
-                config._type_bits |= vm.count("U64") > 0 ? MatchTypeBitU64 : 0;
+                config._type_bits |= vm["I8"].as<bool>() ? MatchTypeBitI8 : 0;
+                config._type_bits |= vm["I16"].as<bool>() ? MatchTypeBitI16 : 0;
+                config._type_bits |= vm["I32"].as<bool>() ? MatchTypeBitI32 : 0;
+                config._type_bits |= vm["I64"].as<bool>() ? MatchTypeBitI64 : 0;
+                config._type_bits |= vm["U8"].as<bool>() ? MatchTypeBitU8 : 0;
+                config._type_bits |= vm["U16"].as<bool>() ? MatchTypeBitU16 : 0;
+                config._type_bits |= vm["U32"].as<bool>() ? MatchTypeBitU32 : 0;
+                config._type_bits |= vm["U64"].as<bool>() ? MatchTypeBitU64 : 0;
             } catch (const std::exception& e) {
                 _message_view->stream()
                     << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
@@ -274,14 +326,81 @@ public:
             }
 
             if (not _process) {
+                _message_view->stream() << "Invalid target process, attach to target using the 'attach' command";
+                return;
+            }
+
+            try {
+                auto view = scan(_message_view, _process, config);
+                if (view) {
+                    _session_views.emplace_back(view);
+                    _current_session_view = view;
+                    push(view);
+                }
+            } catch(const std::exception& e) {
+                _message_view->stream()
+                    << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() << " "
+                    << e.what();
+                return;
+            }
+
+        } else if (command == "filter") {
+            po::variables_map vm {};
+            PARSE_ARG(filter);
+
+            ScanConfig config;
+
+            try {
+                if (vm.count("expr")) {
+                    config._expr = vm["expr"].as<std::string>();
+                }
+            } catch (const std::exception& e) {
+                _message_view->stream()
+                    << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                    << e.what();
+                return;
+            }
+
+            if (config._expr.empty()) {
+                _message_view->stream() << "Usage: " << command << " [options] expression\n"
+                                        << _options_filter;
+                return;
+            }
+
+            if (_current_session_view == nullptr) {
+                _message_view->stream()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " No avaliable session, create a session using the 'scan' command";
+                return;
+            }
+
+            if (not _process) {
                 _message_view->stream() << "Invalid target process: attach to target using the 'attach' command";
                 return;
             }
 
-            auto view = scan(_message_view, _process, config);
-            if (view) {
-                push(view);
+            try {
+                filter(_message_view, _current_session_view, config);
+            } catch(const std::exception& e) {
+                _message_view->stream()
+                    << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() << " "
+                    << e.what();
+                return;
             }
+
+        } else if (command == "update") {
+            if (_current_session_view == nullptr) {
+                _message_view->stream()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " No avaliable session, create a session using the 'scan' command";
+                return;
+            }
+
+            update(_message_view, _current_session_view);
 
         } else {
             using namespace tui::style;

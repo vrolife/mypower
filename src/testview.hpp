@@ -61,6 +61,11 @@ public:
 
     std::string tui_select(size_t index) override {
         switch(index) {
+            case 0: {
+                std::ostringstream os;
+                os << "scan -i =" << at(0);
+                return os.str();
+            }
             case 1:
                 at(0) += 1;
                 tui_notify_changed();

@@ -17,6 +17,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #ifndef __process_hpp__
 #define __process_hpp__
 
+#include <sys/uio.h>
+
 #include "vmmap.hpp"
 
 namespace mypower {

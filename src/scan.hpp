@@ -28,21 +28,31 @@ namespace mypower {
 
 using namespace tui;
 
-class SessionView : public ContentProvider {
-    virtual void filter(const std::string_view expr) = 0;
-};
-
 struct ScanConfig {
     std::string _expr;
     size_t _step{0};
     uint32_t _type_bits{0};
     uint32_t _memofy_flags{kRegionFlagReadWrite};
+    bool _suspend_same_user{false};
 };
 
-std::shared_ptr<ContentProvider> scan(
+struct SessionView : public ContentProvider { };
+
+std::shared_ptr<SessionView> scan(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<Process>& process,
-    const ScanConfig& config
+    ScanConfig& config
+);
+
+bool filter(
+    std::shared_ptr<MessageView>& message_view,
+    std::shared_ptr<SessionView>& session_view,
+    ScanConfig& config
+);
+
+bool update(
+    std::shared_ptr<MessageView>& message_view,
+    std::shared_ptr<SessionView>& session_view
 );
 
 } // namespace mypower

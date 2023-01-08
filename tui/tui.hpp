@@ -179,6 +179,10 @@ public:
 
     static
     StyleString layout(StyleString& string, size_t width, size_t gap, int decoration, LayoutAlign align);
+
+    const std::string& string() const {
+        return _string;
+    }
 };
 
 class StyleStringBuilder {
@@ -270,6 +274,8 @@ enum ContentProviderFlags {
 };
 
 struct ContentProvider {
+    virtual ~ContentProvider() = default;
+
     virtual void tui_show(size_t width) {};
     virtual void tui_hide() {};
     virtual bool tui_key(int key) { return false; };
@@ -296,6 +302,7 @@ private:
 };
 
 struct CommandHandler {
+    virtual ~CommandHandler() = default;
     virtual StyleString tui_prompt(size_t width) = 0;
     virtual void tui_run(const std::string& command) = 0;
     virtual bool tui_key(int key) { return false; }

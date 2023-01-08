@@ -93,5 +93,8 @@ add_executable(chproc chproc.cpp)
 add_library(scanner STATIC process.cpp vmmap.cpp)
 target_include_directories(scanner PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
-add_executable(mypower mypower.cpp processlist.cpp scan.cpp)
-target_link_libraries(mypower PRIVATE scanner tui dsl Boost::program_options)
+add_library(commands STATIC scan.cpp)
+target_link_libraries(commands PRIVATE scanner tui dsl Boost::program_options)
+
+add_executable(mypower mypower.cpp processlist.cpp)
+target_link_libraries(mypower PRIVATE commands scanner tui dsl Boost::program_options)

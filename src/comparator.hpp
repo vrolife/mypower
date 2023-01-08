@@ -20,6 +20,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
+
+#include "matchvalue.hpp"
 
 namespace mypower {
 
@@ -56,7 +59,7 @@ class ComparatorRange {
 public:
     typedef T Type;
 
-    ComparatorRange(T max, T min)
+    ComparatorRange(T min, T max)
         : _max(max)
         , _min(min)
     {
@@ -200,6 +203,8 @@ public:
 template <>
 class ComparatorGreaterThen<uint8_t*> {
 public:
+    ComparatorGreaterThen(const uint8_t*, size_t) { }
+
     inline bool operator()(const uint8_t* value) const
     {
         return true;
@@ -234,6 +239,8 @@ public:
 template <>
 class ComparatorLessThen<uint8_t*> {
 public:
+    ComparatorLessThen(const uint8_t*, size_t) { }
+
     inline bool operator()(const uint8_t* value) const
     {
         return true;
@@ -268,6 +275,8 @@ public:
 template <>
 class ComparatorGreaterOrEqual<uint8_t*> {
 public:
+    ComparatorGreaterOrEqual(const uint8_t*, size_t) { }
+
     inline bool operator()(const uint8_t* value) const
     {
         return true;
@@ -302,6 +311,8 @@ public:
 template <>
 class ComparatorLessOrEqual<uint8_t*> {
 public:
+    ComparatorLessOrEqual(const uint8_t*, size_t) { }
+
     inline bool operator()(const uint8_t* value) const
     {
         return true;
@@ -316,32 +327,128 @@ public:
 struct FilterEqual {
     template <typename T>
     using Comparator = ComparatorEqual<T>;
+
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, ...) {
+        return Comparator<T>(static_cast<T>(value));
+    }
 };
 
 struct FilterNotEqual {
     template <typename T>
     using Comparator = ComparatorNotEqual<T>;
+    
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, ...) {
+        return Comparator<T>(static_cast<T>(value));
+    }
 };
 
 struct FilterGreaterThen {
     template <typename T>
     using Comparator = ComparatorGreaterThen<T>;
+    
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, ...) {
+        return Comparator<T>(static_cast<T>(value));
+    }
 };
 
 struct FilterGreaterOrEqual {
     template <typename T>
     using Comparator = ComparatorGreaterOrEqual<T>;
+    
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, ...) {
+        return Comparator<T>(static_cast<T>(value));
+    }
 };
 
 struct FilterLessThen {
     template <typename T>
     using Comparator = ComparatorLessThen<T>;
+    
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, ...) {
+        return Comparator<T>(static_cast<T>(value));
+    }
 };
 
 struct FilterLessOrEqual {
     template <typename T>
     using Comparator = ComparatorLessOrEqual<T>;
+    
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, ...) {
+        return Comparator<T>(static_cast<T>(value));
+    }
 };
+
+struct FilterMaskEqual {
+    template <typename T>
+    using Comparator = ComparatorMask<T>;
+
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, uintptr_t mask) {
+        return Comparator<T>(value, mask);
+    }
+};
+
+struct FilterMaskNotEqual {
+    template <typename T>
+    using Comparator = ComparatorMask<T, true>;
+
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t value, uintptr_t mask) {
+        return Comparator<T>(value, mask);
+    }
+};
+
+struct FilterRangeEqual {
+    template <typename T>
+    using Comparator = ComparatorRange<T>;
+
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t min, uintptr_t max) {
+        return Comparator<T>(min, max);
+    }
+};
+
+struct FilterRangeNotEqual {
+    template <typename T>
+    using Comparator = ComparatorRange<T, true>;
+
+    template<typename T>
+    static
+    Comparator<T> create(uintptr_t min, uintptr_t max) {
+        return Comparator<T>(min, max);
+    }
+};
+
+template<typename F, typename T>
+struct IsSuitableFilter : std::true_type { };
+
+template<>
+struct IsSuitableFilter<FilterMaskEqual, typeFLOAT> : std::false_type { };
+template<>
+struct IsSuitableFilter<FilterMaskEqual, typeDOUBLE> : std::false_type { };
+
+template<>
+struct IsSuitableFilter<FilterMaskNotEqual, typeFLOAT> : std::false_type { };
+template<>
+struct IsSuitableFilter<FilterMaskNotEqual, typeDOUBLE> : std::false_type { };
+
+template<typename F>
+struct IsSuitableFilter<F, typeBYTES> : std::false_type { };
 
 } // namespace mypower
 

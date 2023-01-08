@@ -555,6 +555,9 @@ StyleString HistoryView::tui_title(size_t width)
 void HistoryView::history_key(int key, Editor& editor) {
     switch(key) {
         case KEY_UP:
+            if (empty()) {
+                break;
+            }
             if (_index == -1) {
                 _saved_buffer = editor.buffer();
                 _index = size() - 1;

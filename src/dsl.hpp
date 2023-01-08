@@ -77,7 +77,7 @@ public:
         return *this;
     }
 
-    uintptr_t operator()(uintptr_t old, uintptr_t _new, uintptr_t addr) {
+    uintptr_t operator()(uintptr_t old, uintptr_t _new, uintptr_t addr) const {
         return ((uintptr_t(*)(uintptr_t, uintptr_t, uintptr_t))_code)(old, _new, addr);
     }
 

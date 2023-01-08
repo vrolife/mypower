@@ -130,8 +130,11 @@ public:
 class Session {
     std::shared_ptr<Process> _process;
     VMRegion::ListType _memory_regions;
-    std::vector<std::unique_ptr<MatchValue>> _matchs;
     size_t _cache_size;
+
+#define __MATCHES(t) std::vector<Match##t> _matches_##t;
+    MATCH_TYPES(__MATCHES);
+#undef __MATCHES
 
 public:
     Session(std::shared_ptr<Process>& process, size_t cache_size)
@@ -149,12 +152,18 @@ public:
         return not _memory_regions.empty();
     }
 
-    const MatchValue& at(size_t index) const {
-        return *_matchs.at(index);
+    template<typename T>
+    void add_match(T&& match) {
+#define __ADD_MATCH(t) \
+        if constexpr (std::is_same<T, Match##t>::value) { \
+            _matches_##t.emplace_back(std::move(match)); \
+        }
+    MATCH_TYPES(__ADD_MATCH);
+#undef __ADD_MATCH
     }
 
     template <typename T>
-    void search(T&& scanner, uint32_t mask = kRegionFlagReadWrite)
+    void scan(T&& scanner, uint32_t mask = kRegionFlagReadWrite)
     {
         for (auto& region : _memory_regions) {
             if ((region._prot & mask) != mask) {
@@ -167,8 +176,8 @@ public:
 
             MemoryMapper mapper { _process, begin, end, scanner.step(), _cache_size };
 
-            auto callback = [&](std::unique_ptr<MatchValue>&& value) {
-                _matchs.emplace_back(std::move(value));
+            auto callback = [&](typename T::MatchType&& value) {
+                add_match(std::move(value));
             };
 
             while (mapper.next()) {
@@ -177,16 +186,23 @@ public:
         }
     }
 
-    template <typename Filter>
-    void filter()
+    template <typename Filter, typename M>
+    void filter(M& matches, const Filter& filter={})
     {
+        typedef typename M::value_type MatchType;
+        typedef typename MatchType::type ValueType;
+
+        if (matches.empty()) {
+            return;
+        }
+
         std::vector<struct iovec> remote {};
-        remote.reserve(_matchs.size());
+        remote.reserve(matches.size());
         size_t local_size = 0;
-        for (auto& match : _matchs) {
-            const auto size = match->_size;
+        for (auto& match : matches) {
+            const auto size = sizeof(ValueType);
             local_size += size;
-            remote.emplace_back(iovec { reinterpret_cast<void*>(match->_addr.get()), size });
+            remote.emplace_back(iovec { reinterpret_cast<void*>(match._addr.get()), size });
         }
         std::vector<uint8_t> local_buffer;
         local_buffer.resize(local_size);
@@ -196,59 +212,190 @@ public:
         };
         _process->read(&local_vec, 1, remote.data(), remote.size());
 
-        std::vector<std::unique_ptr<MatchValue>> new_matchs;
-        new_matchs.reserve(_matchs.size());
+        std::vector<MatchType> new_matchs;
+        new_matchs.reserve(matches.size());
 
         size_t offset = 0;
-        for (auto& match : _matchs) {
+        for (auto& match : matches) 
+        {
             auto* ptr = local_buffer.data() + offset;
-            offset += match->_size;
-            if (match->filter<Filter>(ptr)) {
-                memcpy(match->_data._bytes, ptr, match->_size);
-                new_matchs.emplace_back(std::move(match));
+            offset += sizeof(ValueType);
+
+            ValueType value;
+            memcpy(&value, ptr, sizeof(ValueType));
+
+            if constexpr (sizeof(Filter) != 1) {
+                // filter_complex_expression
+                if (filter(match._value, value, match._addr.get())) {
+                    match._value = value;
+                    new_matchs.emplace_back(std::move(match));
+                }
+            } else {
+                typename Filter::template Comparator<ValueType> comparator{match._value};
+                
+                if (comparator(value)) {
+                    match._value = value;
+                    new_matchs.emplace_back(std::move(match));
+                }
             }
         }
 
-        _matchs = std::move(new_matchs);
+        matches = std::move(new_matchs);
     }
 
-    template <typename Comparator>
-    void filter(Comparator&& comparator)
+    template <typename Filter>
+    void filter()
     {
+        static_assert(sizeof(Filter) == 1, "see filter_complex_expression");
+
+#define __FILTER(t) \
+        if constexpr (IsSuitableFilter<Filter, type##t>::value) { \
+            filter<Filter>(_matches_##t); \
+        }
+
+    MATCH_TYPES(__FILTER);
+#undef __FILTER
+    }
+
+    template <typename Filter, typename M>
+    void filter(M& matches, uintptr_t constant1, uintptr_t constant2)
+    {
+        typedef typename M::value_type MatchType;
+        typedef typename MatchType::type ValueType;
+
+        if (matches.empty()) {
+            return;
+        }
+
         std::vector<struct iovec> remote {};
         std::vector<struct iovec> local {};
 
-        remote.reserve(_matchs.size());
-        local.reserve(_matchs.size());
+        remote.reserve(matches.size());
+        local.reserve(matches.size());
 
-        for (auto& match : _matchs) {
-            remote.emplace_back(iovec { reinterpret_cast<void*>(match->_addr.get()), match->_size });
-            local.emplace_back(iovec { match->_data._bytes, match->_size });
+        for (auto& match : matches) {
+            remote.emplace_back(iovec { reinterpret_cast<void*>(match._addr.get()), sizeof(match._value) });
+            local.emplace_back(iovec { &match._value, sizeof(match._value) });
         }
 
         _process->read(local.data(), local.size(), remote.data(), remote.size());
 
-        std::vector<std::unique_ptr<MatchValue>> new_matchs;
-        new_matchs.reserve(_matchs.size());
+        std::vector<MatchType> new_matchs;
+        new_matchs.reserve(matches.size());
 
-        for (auto& match : _matchs) {
-            if (match->filter(comparator)) {
+        for (auto& match : matches) {
+            auto comparator = Filter::template create<ValueType>(constant1, constant2);
+
+            if (comparator(match._value)) {
                 new_matchs.emplace_back(std::move(match));
             }
         }
-        _matchs = std::move(new_matchs);
+        matches = std::move(new_matchs);
+    }
+
+    template <typename Filter>
+    void filter(uintptr_t constant1, uintptr_t constant2)
+    {
+#define __FILTER(t) \
+        if constexpr (IsSuitableFilter<Filter, type##t>::value) { \
+            filter<Filter>(_matches_##t, constant1, constant2); \
+        }
+
+    MATCH_TYPES(__FILTER);
+#undef __FILTER
+    }
+
+    template <typename Callable>
+    void filter_complex_expression(Callable& callable)
+    {
+        static_assert(sizeof(Callable) != 1, "see filter_complex_expression");
+#define __FILTER(t) \
+        filter<Callable>(_matches_##t, callable);
+
+    MATCH_TYPES_INTEGER(__FILTER);
+#undef __FILTER
+    }
+
+    template <typename M>
+    void update_matches(M& matches)
+    {
+        typedef typename M::value_type MatchType;
+        typedef typename MatchType::type ValueType;
+
+        if (matches.empty()) {
+            return;
+        }
+
+        std::vector<struct iovec> remote {};
+        std::vector<struct iovec> local {};
+
+        remote.reserve(matches.size());
+        local.reserve(matches.size());
+
+        for (auto& match : matches) {
+            remote.emplace_back(iovec { reinterpret_cast<void*>(match._addr.get()), sizeof(match._value) });
+            local.emplace_back(iovec { &match._value, sizeof(match._value) });
+        }
+
+        _process->read(local.data(), local.size(), remote.data(), remote.size());
+    }
+
+    void update_matches()
+    {
+#define __UPDATE(t) \
+        update_matches(_matches_##t);
+
+    MATCH_TYPES_INTEGER(__UPDATE);
+#undef __UPDATE
     }
 
     size_t size() const
     {
-        return _matchs.size();
+        size_t sz = 0;
+#define __SIZE(t) \
+        sz += _matches_##t.size();
+    MATCH_TYPES(__SIZE);
+#undef __SIZE
+        return sz;
     }
+
+    std::string str(size_t index) const {
+        size_t offset = 0;
+#define __STR(t) \
+        if (index >= offset and index < (offset + _matches_##t.size())) { \
+            return to_string(_matches_##t.at(index - offset)); \
+        } \
+        offset += _matches_##t.size();
+
+    MATCH_TYPES(__STR);
+#undef __STR
+        throw std::out_of_range("index out of range");
+    }
+    
+#define __SIZE(t) \
+    size_t t##_size() const { \
+        return _matches_##t.size(); \
+    }
+
+    MATCH_TYPES(__SIZE);
+#undef __SIZE
+
+#define __AT(t) \
+    auto t##_at(size_t index) const { \
+        return _matches_##t.at(index); \
+    }
+
+    MATCH_TYPES(__AT);
+#undef __AT
 };
 
 template <typename Comparator>
 class ScanComparator {
-    typedef typename Comparator::Type Type;
-    static_assert(std::is_integral<Type>::value or std::is_floating_point<Type>::value, "Number only");
+public:
+    typedef typename Comparator::Type ValueType;
+    typedef typename GetMatchType<ValueType>::type MatchType;
+private:
+    static_assert(std::is_integral<ValueType>::value or std::is_floating_point<ValueType>::value, "Number only");
 
     Comparator _comparator;
     size_t _step;
@@ -263,7 +410,7 @@ public:
     constexpr size_t step() const { return _step; }
 
     template <typename Callback>
-    void operator()(VMAddress addr, void* buffer_begin, void* buffer_end, Callback&& callback)
+    void operator()(VMAddress addr_begin, void* buffer_begin, void* buffer_end, Callback&& callback)
     {
         // Copy to stack
         const auto step = this->step();
@@ -280,16 +427,14 @@ public:
 #endif
         }
 #endif
-        if (step == sizeof(Type)) {
+        if (step == sizeof(ValueType)) {
             auto begin = reinterpret_cast<uintptr_t>(buffer_begin);
             auto end = reinterpret_cast<uintptr_t>(buffer_end);
             for (uintptr_t iter = begin; iter != end; iter += step) {
-                auto value = *reinterpret_cast<Type*>(iter);
+                auto value = *reinterpret_cast<ValueType*>(iter);
+                auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                 if (UNLIKELY(comparator(value))) {
-                    callback(
-                        MatchValue::create(
-                            addr + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin)),
-                            value));
+                    callback(MatchType(std::move(address), std::move(value)));
                 }
             }
 
@@ -297,13 +442,11 @@ public:
             auto begin = reinterpret_cast<uintptr_t>(buffer_begin);
             auto end = reinterpret_cast<uintptr_t>(buffer_end);
             for (uintptr_t iter = begin; iter != end; iter += step) {
-                Type value;
-                memcpy(&value, reinterpret_cast<void*>(iter), sizeof(Type));
+                ValueType value;
+                memcpy(&value, reinterpret_cast<void*>(iter), sizeof(ValueType));
+                auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                 if (UNLIKELY(comparator(value))) {
-                    callback(
-                        MatchValue::create(
-                            addr + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin)),
-                            value));
+                    callback(MatchType(std::move(address), std::move(value)));
                 }
             }
         }
@@ -312,9 +455,13 @@ public:
 
 template<typename T, typename Callable>
 class ScanExpression {
-    typedef T Type;
+public:
+    typedef T ValueType;
+    typedef typename GetMatchType<ValueType>::type MatchType;
+private:
     Callable _callable;
     size_t _step;
+
 public:
     ScanExpression(Callable&& callable, size_t step)
         : _callable { std::move(callable) }, _step(step)
@@ -331,11 +478,11 @@ public:
         auto begin = reinterpret_cast<uintptr_t>(buffer_begin);
         auto end = reinterpret_cast<uintptr_t>(buffer_end);
         for (uintptr_t iter = begin; iter != end; iter += step) {
-            Type value;
-            memcpy(&value, reinterpret_cast<void*>(iter), sizeof(Type));
+            ValueType value;
+            memcpy(&value, reinterpret_cast<void*>(iter), sizeof(ValueType));
             auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
             if (UNLIKELY(_callable(0, value, address.get()))) {
-                callback(MatchValue::create(address, value));
+                callback(MatchType(std::move(address), std::move(value)));
             }
         }
     }

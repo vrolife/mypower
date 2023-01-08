@@ -138,6 +138,7 @@ struct Compiler {
 };
 
 struct ASTNode {
+    virtual ~ASTNode() = default;
     virtual size_t depth(size_t depth) = 0;
     virtual void gencode(Compiler& compiler, size_t depth) = 0;
 };

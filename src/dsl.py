@@ -30,12 +30,6 @@ class MathExpression(metaclass=Parser):
     QUESTION = Token(r'\?')
     COLON = Token(r':')
 
-    LSQ = Token(r'\[')
-    RSQ = Token(r'\]')
-    
-    LBK = Token(r'\{')
-    RBK = Token(r'\}')
-
     COMMA = Token(r',')
 
     _ = Precedence.Left
@@ -79,6 +73,10 @@ class MathExpression(metaclass=Parser):
     _ = Precedence.Increase
     LPAR = Token(r'\(')
     RPAR = Token(r'\)')
+    LSQ = Token(r'\[')
+    RSQ = Token(r'\]')
+    LBK = Token(r'\{')
+    RBK = Token(r'\}')
     UMINUS = Token(r'-')
     NOT = Token(r'~')
     LNOT = Token(r'!')
@@ -184,20 +182,35 @@ class ComparatorExpression(metaclass=Parser):
 
     _ = MathExpression.addr_expr_scanner
 
-    @Rule(MathExpression.EQ, MathExpression.EXPR)
-    @Rule(MathExpression.NE, MathExpression.EXPR)
-    @Rule(MathExpression.GT, MathExpression.EXPR)
-    @Rule(MathExpression.GE, MathExpression.EXPR)
-    @Rule(MathExpression.LT, MathExpression.EXPR)
-    @Rule(MathExpression.LE, MathExpression.EXPR)
+    @Rule(MathExpression.EQ, MathExpression.EXPR, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.NE, MathExpression.EXPR, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.GT, MathExpression.EXPR, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.GE, MathExpression.EXPR, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.LT, MathExpression.EXPR, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.LE, MathExpression.EXPR, precedence=MathExpression.COMMA)
     @staticmethod
     def COMPARATOR(self, _, expr):
         pass
 
-    @Rule(MathExpression.EQ, MathExpression.LSQ, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RSQ)
-    @Rule(MathExpression.EQ, MathExpression.LBK, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RBK)
-    @Rule(MathExpression.NE, MathExpression.LSQ, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RSQ)
-    @Rule(MathExpression.NE, MathExpression.LBK, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RBK)
+    @Rule(MathExpression.EQ, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.NE, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.GT, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.GE, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.LT, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.LE, precedence=MathExpression.COMMA)
+    @staticmethod
+    def COMPARATOR(self, _, expr):
+        pass
+
+    @Rule(MathExpression.EQ, MathExpression.LSQ, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RSQ, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.EQ, MathExpression.LBK, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RBK, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.NE, MathExpression.LSQ, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RSQ, precedence=MathExpression.COMMA)
+    @Rule(MathExpression.NE, MathExpression.LBK, MathExpression.EXPR, MathExpression.COMMA, MathExpression.EXPR, MathExpression.RBK, precedence=MathExpression.COMMA)
+    @staticmethod
+    def COMPARATOR(self, _, expr):
+        pass
+
+    @Rule(MathExpression.EXPR)
     @staticmethod
     def COMPARATOR(self, _, expr):
         pass
