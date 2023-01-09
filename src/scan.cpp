@@ -75,6 +75,10 @@ public:
     , _expr(expr)
     { }
 
+    const std::string session_name() override {
+        return _expr;
+    }
+
     StyleString tui_title(size_t width) override
     {
         return StyleString::layout("Matches: "s + _expr, width, 1, '=', LayoutAlign::Center);

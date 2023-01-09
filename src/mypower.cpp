@@ -86,6 +86,9 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
     po::options_description _options_update { "Allowed options" };
     po::positional_options_description _posiginal_update {};
 
+    po::options_description _options_session { "Allowed options" };
+    po::positional_options_description _posiginal_session {};
+
 public:
     App(TUI& tui, pid_t pid)
         : _tui(tui)
@@ -121,6 +124,11 @@ public:
         _options_filter.add_options()("help", "show help message");
         _options_filter.add_options()("session,s", po::value<std::string>(), "filter expression");
         _posiginal_filter.add("session", 1);
+
+        _options_session.add_options()("help", "show help message");
+        _options_session.add_options()("session,s", po::value<std::string>(), "session index/name");
+        _options_session.add_options()("list,l", po::bool_switch()->default_value(false), "List exists sessions");
+        _posiginal_session.add("session", 1);
 
         if (pid != -1) {
             _process = std::make_shared<Process>(pid);
@@ -406,6 +414,59 @@ public:
             if (not _view_stack.empty()) {
                 _view_stack.top()->tui_notify_changed();
             }
+
+        } else if (command == "session") {
+            po::variables_map vm {};
+            PARSE_ARG(session);
+
+            if (_session_views.empty()) {
+                _message_view->stream()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " No avaliable session, create a session using the 'scan' command";
+                return;
+            }
+
+            if (vm["list"].as<bool>() or not vm.count("session")) {
+                _message_view->stream() << "Sessions:";
+                auto index = 0;
+                for (auto& session : _session_views) {
+                    _message_view->stream()
+                        << SetColor(ColorInfo)
+                        << "< " << index++ << " >"
+                        << ResetStyle() << " "
+                        << SetStyle(AttrUnderline)
+                        << session->session_name();
+                    return;
+                }
+            }
+
+            ssize_t index = -1;
+            auto name_or_index = vm["session"].as<std::string>();
+            try {
+                index = std::stoul(name_or_index);
+            } catch(...) {
+                index = 0;
+                for (auto& session : _session_views) {
+                    if (session->session_name() == name_or_index) {
+                        break;
+                    }
+                    index += 1;
+                }
+            }
+
+            if (index < 0 or index >= _session_views.size()) {
+                _message_view->stream()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " Invalid session name/index";
+                return;
+            }
+            
+            _current_session_view = _session_views.at(index);
+            push(_current_session_view);
 
         } else {
             using namespace tui::style;

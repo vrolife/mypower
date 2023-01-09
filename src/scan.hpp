@@ -36,7 +36,9 @@ struct ScanConfig {
     bool _suspend_same_user{false};
 };
 
-struct SessionView : public ContentProvider { };
+struct SessionView : public ContentProvider {
+    virtual const std::string session_name() = 0;
+};
 
 std::shared_ptr<SessionView> scan(
     std::shared_ptr<MessageView>& message_view,
