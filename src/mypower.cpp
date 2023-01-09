@@ -402,6 +402,11 @@ public:
 
             update(_message_view, _current_session_view);
 
+        } else if (command == "refresh-view") {
+            if (not _view_stack.empty()) {
+                _view_stack.top()->tui_notify_changed();
+            }
+
         } else {
             using namespace tui::style;
             _message_view->stream()

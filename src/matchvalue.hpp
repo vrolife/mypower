@@ -109,13 +109,20 @@ struct GetMatchType;
     template<> \
     struct GetMatchType<type##t> { typedef Match##t type; };
 
-
 MATCH_TYPES(__MATCH);
 #undef __MATCH
 
+#define __TYPE_TO_STRING(t) \
+    inline \
+    std::string to_string(const type##t &) { \
+        return #t; \
+    }
+
+MATCH_TYPES(__TYPE_TO_STRING);
+#undef __TYPE_TO_STRING
+
 template<typename T>
-inline
-static 
+inline 
 typename std::enable_if<
     std::is_integral<typename T::type>::value
     or std::is_floating_point<typename T::type>::value
@@ -123,12 +130,11 @@ typename std::enable_if<
 type to_string(const T& match)
 {
     std::ostringstream os;
-    os << match._addr.get() << ": " << match._value;
+    os << std::hex << "0x" << match._addr.get() << std::dec << " " << to_string(match._value) << ": " << match._value;
     return os.str();
 }
 
 inline
-static 
 std::string to_string(const MatchBYTES& match)
 {
     return "TODO convert bytes to hex string";

@@ -305,12 +305,12 @@ public:
 #undef __FILTER
     }
 
-    template <typename Callable>
-    void filter_complex_expression(Callable& callable)
+    template <typename Code>
+    void filter_complex_expression(Code& signed_code, Code& unsigned_code)
     {
-        static_assert(sizeof(Callable) != 1, "see filter_complex_expression");
+        static_assert(sizeof(Code) != 1, "see filter_complex_expression");
 #define __FILTER(t) \
-        filter<Callable>(_matches_##t, callable);
+        filter<Code>(_matches_##t, std::is_signed<type##t>::value ? signed_code : unsigned_code);
 
     MATCH_TYPES_INTEGER(__FILTER);
 #undef __FILTER

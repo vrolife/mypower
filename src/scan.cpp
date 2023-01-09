@@ -20,18 +20,64 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mypower {
 
+class SuspendProcess {
+    std::shared_ptr<Process> _process;
+    bool _same_user;
+
+public:
+    SuspendProcess(std::shared_ptr<Process>& process, bool same_user=false, bool enable=true)
+    : _process(process)
+    , _same_user(same_user)
+    {
+        if (not enable) {
+            _process = nullptr;
+        }
+        if (_process) {
+            _process->suspend(same_user);
+        }
+    }
+
+    ~SuspendProcess() {
+        if (_process) {
+            _process->resume(_same_user);
+        }
+    }
+};
+
+class RefreshView {
+    std::shared_ptr<ContentProvider> _view;
+
+public:
+    template<typename T>
+    RefreshView(T& view, bool enable=true)
+    : _view(std::dynamic_pointer_cast<ContentProvider>(view))
+    {
+        if (not enable) {
+            _view = nullptr;
+        }
+    }
+
+    ~RefreshView() {
+        if (_view) {
+            _view->tui_notify_changed();
+        }
+    }
+};
+
 class SessionViewImpl : public SessionView
 {
+    std::string _expr;
 public:
     Session _session;
 
-    SessionViewImpl(std::shared_ptr<Process>& process)
+    SessionViewImpl(std::shared_ptr<Process>& process, const std::string& expr)
     : _session(process, 8 * 1024 * 1024)
+    , _expr(expr)
     { }
 
     StyleString tui_title(size_t width) override
     {
-        return StyleString::layout("Matches", width, 1, '=', LayoutAlign::Center);
+        return StyleString::layout("Matches: "s + _expr, width, 1, '=', LayoutAlign::Center);
     }
 
     StyleString tui_item(size_t index, size_t width) override
@@ -104,37 +150,13 @@ void scan(const ScanConfig& config, bool fast_mode, Session& session, dsl::Compa
     }
 }
 
-class SuspendProcess {
-    std::shared_ptr<Process> _process;
-    bool _same_user;
-
-public:
-    SuspendProcess(std::shared_ptr<Process>& process, bool same_user=false, bool enable=true)
-    : _process(process)
-    , _same_user(same_user)
-    {
-        if (not enable) {
-            _process = nullptr;
-        }
-        if (_process) {
-            _process->suspend(same_user);
-        }
-    }
-
-    ~SuspendProcess() {
-        if (_process) {
-            _process->resume(_same_user);
-        }
-    }
-};
-
 std::shared_ptr<SessionView> scan(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<Process>& process,
     ScanConfig& config
 )
 {
-    auto view = std::make_shared<SessionViewImpl>(process);
+    auto view = std::make_shared<SessionViewImpl>(process, config._expr);
 
     SuspendProcess suspend{process, config._suspend_same_user, process->pid() != ::getpid()};
 
@@ -308,6 +330,7 @@ bool filter(
     ScanConfig& config
 )
 {
+    RefreshView refresh(session_view);
     auto* view = dynamic_cast<SessionViewImpl*>(session_view.get());
 
     auto comparator = dsl::parse_comparator_expression(config._expr);
@@ -381,8 +404,9 @@ bool filter(
                 << " Complex filter expression will not be apply to non-integeral matches";
         }
         auto signed_code = comparator.compile(false);
+        auto unsigned_code = comparator.compile(true);
+        view->_session.filter_complex_expression(signed_code, unsigned_code);
     }
-    view->tui_notify_changed();
     return true;
 }
 
@@ -391,9 +415,9 @@ bool update(
     std::shared_ptr<SessionView>& session_view
 )
 {
+    RefreshView refresh(session_view);
     auto* view = dynamic_cast<SessionViewImpl*>(session_view.get());
     view->_session.update_matches();
-    view->tui_notify_changed();
     return true;
 }
 
