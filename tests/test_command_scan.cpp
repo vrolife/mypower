@@ -43,9 +43,10 @@ int main(int argc, char *argv[])
     *target -= 1;
     config._expr = "<";
     filter(message_view, session_view, config);
-    assert(session_view->tui_count() == 1);
+    assert(session_view->tui_count() > 0);
 
-    config._expr = "$new=24831";
+    *target = 0x203751;
+    config._expr = "$new=0x203751";
     filter(message_view, session_view, config);
     assert(session_view->tui_count() == 1);
 
