@@ -27,12 +27,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace dsl {
 
-static JITCode compile_ast(std::unique_ptr<mathexpr::ASTNode>&& ast) {
+static JITCode compile_ast(std::unique_ptr<mathexpr::ASTNode>&& ast, bool _unsigned=false) {
     void* code = nullptr;
     size_t length = 0;
 
     mathexpr::Compiler compiler{};
-
+    compiler._unsigned = _unsigned;
     compiler._local_size = 3;
     compiler._local_vars.emplace("$old", 0);
     compiler._local_vars.emplace("$new", 1 * sizeof(uintptr_t));
@@ -58,43 +58,43 @@ static JITCode compile_ast(std::unique_ptr<mathexpr::ASTNode>&& ast) {
 
 ComparatorExpression::~ComparatorExpression() { }
 
-JITCode ComparatorExpression::compile() {
+JITCode ComparatorExpression::compile(bool _unsigned) {
     using namespace mathexpr;
     switch (_comparator) {
     case ComparatorType::EQ_Expr:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "="_opr, std::move(_expr1)));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "="_opr, std::move(_expr1)), _unsigned);
     case ComparatorType::NE_Expr:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "!="_opr, std::move(_expr1)));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "!="_opr, std::move(_expr1)), _unsigned);
     case ComparatorType::GT_Expr:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">"_opr, std::move(_expr1)));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">"_opr, std::move(_expr1)), _unsigned);
     case ComparatorType::GE_Expr:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">="_opr, std::move(_expr1)));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">="_opr, std::move(_expr1)), _unsigned);
     case ComparatorType::LT_Expr:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<"_opr, std::move(_expr1)));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<"_opr, std::move(_expr1)), _unsigned);
     case ComparatorType::LE_Expr:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<="_opr, std::move(_expr1)));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<="_opr, std::move(_expr1)), _unsigned);
     case ComparatorType::EQ_Range:
-        return compile_ast(std::make_unique<ASTRange>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2)));
+        return compile_ast(std::make_unique<ASTRange>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2)), _unsigned);
     case ComparatorType::NE_Range:
-        return compile_ast(std::make_unique<ASTRange>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2), true));
+        return compile_ast(std::make_unique<ASTRange>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2), true), _unsigned);
     case ComparatorType::EQ_Mask:
-        return compile_ast(std::make_unique<ASTMask>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2)));
+        return compile_ast(std::make_unique<ASTMask>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2)), _unsigned);
     case ComparatorType::NE_Mask:
-        return compile_ast(std::make_unique<ASTMask>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2), true));
+        return compile_ast(std::make_unique<ASTMask>(std::make_unique<ASTRef>("$new"), std::move(_expr1), std::move(_expr2), true), _unsigned);
     case ComparatorType::Boolean:
-        return compile_ast(std::move(_expr1));
+        return compile_ast(std::move(_expr1), _unsigned);
     case ComparatorType::EQ:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "="_opr, std::make_unique<ASTRef>("$old")));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "="_opr, std::make_unique<ASTRef>("$old")), _unsigned);
     case ComparatorType::NE:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "!="_opr, std::make_unique<ASTRef>("$old")));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "!="_opr, std::make_unique<ASTRef>("$old")), _unsigned);
     case ComparatorType::GT:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">"_opr, std::make_unique<ASTRef>("$old")));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">"_opr, std::make_unique<ASTRef>("$old")), _unsigned);
     case ComparatorType::GE:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">="_opr, std::make_unique<ASTRef>("$old")));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), ">="_opr, std::make_unique<ASTRef>("$old")), _unsigned);
     case ComparatorType::LT:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<"_opr, std::make_unique<ASTRef>("$old")));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<"_opr, std::make_unique<ASTRef>("$old")), _unsigned);
     case ComparatorType::LE:
-        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<="_opr, std::make_unique<ASTRef>("$old")));
+        return compile_ast(std::make_unique<ASTOpr2>(std::make_unique<ASTRef>("$new"), "<="_opr, std::make_unique<ASTRef>("$old")), _unsigned);
     default:
         assert(false && "Unsupported comparator");
     }
@@ -109,8 +109,8 @@ void JITCode::free_code() {
     }
 }
 
-JITCode compile_math_expression(const std::string& string) {
-    return compile_ast(mathexpr::parse(string));
+JITCode compile_math_expression(const std::string& string, bool _unsigned) {
+    return compile_ast(mathexpr::parse(string), _unsigned);
 }
 
 ComparatorExpression parse_comparator_expression(const std::string& string)

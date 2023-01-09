@@ -101,10 +101,10 @@ struct ComparatorExpression {
     ComparatorExpression& operator=(ComparatorExpression&&) noexcept = default;
     ~ComparatorExpression();
 
-    JITCode compile();
+    JITCode compile(bool _unsigned=false);
 };
 
-JITCode compile_math_expression(const std::string& string);
+JITCode compile_math_expression(const std::string& string, bool _unsigned=false);
 
 ComparatorExpression parse_comparator_expression(const std::string& string);
 

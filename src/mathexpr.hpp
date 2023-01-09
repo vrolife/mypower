@@ -108,6 +108,7 @@ struct Compiler {
     size_t _local_size{0};
     std::unordered_map<std::string, uintptr_t> _local_vars{};
     size_t _reference_count{0};
+    bool _unsigned{false};
 
     struct sljit_compiler* _compiler{nullptr};
 
@@ -145,7 +146,6 @@ struct ASTNode {
 
 struct ASTRetarget : ASTNode {
     sljit_s32 _target{SLJIT_R0};
-
 };
 
 struct ASTNumber : ASTRetarget {
@@ -223,14 +223,14 @@ struct ASTOpr2 : ASTNode {
 
         switch(_opr) {
             case "/"_opr:
-                sljit_emit_op0(compiler, SLJIT_DIV_UW);
+                sljit_emit_op0(compiler, compiler._unsigned ? SLJIT_DIV_UW : SLJIT_DIV_SW);
                 break;
             case "%"_opr:
-                sljit_emit_op0(compiler, SLJIT_DIVMOD_UW);
+                sljit_emit_op0(compiler, compiler._unsigned ? SLJIT_DIVMOD_UW : SLJIT_DIVMOD_SW);
                 sljit_emit_op1(compiler, SLJIT_MOV, SLJIT_R0, 0, SLJIT_R1, 0);
                 break;
             case "*"_opr:
-                sljit_emit_op0(compiler, SLJIT_LMUL_UW);
+                sljit_emit_op0(compiler, compiler._unsigned ? SLJIT_LMUL_UW : SLJIT_LMUL_SW);
                 break;
             case "+"_opr:
                 sljit_emit_op2(compiler, SLJIT_ADD, SLJIT_R0, 0, SLJIT_R0, 0, SLJIT_R1, 0);
@@ -295,10 +295,10 @@ struct ASTOpr2 : ASTNode {
             {
                 int op;
                 switch(_opr) {
-                    case ">"_opr: op = SLJIT_GREATER; break;
-                    case ">="_opr: op = SLJIT_GREATER_EQUAL; break;
-                    case "<"_opr: op = SLJIT_LESS; break;
-                    case "<="_opr: op = SLJIT_LESS_EQUAL; break;
+                    case ">"_opr: op = compiler._unsigned ? SLJIT_GREATER : SLJIT_SIG_GREATER; break;
+                    case ">="_opr: op = compiler._unsigned ? SLJIT_GREATER_EQUAL : SLJIT_SIG_GREATER_EQUAL; break;
+                    case "<"_opr: op = compiler._unsigned ? SLJIT_LESS : SLJIT_SIG_LESS; break;
+                    case "<="_opr: op = compiler._unsigned ? SLJIT_LESS_EQUAL : SLJIT_SIG_LESS_EQUAL; break;
                     case "="_opr: op = SLJIT_EQUAL; break;
                     case "!="_opr: op = SLJIT_NOT_EQUAL; break;
                     default: break;
@@ -502,7 +502,7 @@ struct EXPR : public Symbol<std::unique_ptr<ASTNode>>
 
         switch(opr1->_opr) {
             case "-"_opr:
-                value() = std::make_unique<ASTNumber>(-num->_value);
+                value() = std::make_unique<ASTNumber>((~num->_value)+1);
                 break;
             case "~"_opr:
                 value() = std::make_unique<ASTNumber>(~num->_value);

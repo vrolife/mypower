@@ -380,8 +380,7 @@ bool filter(
                 << style::ResetStyle()
                 << " Complex filter expression will not be apply to non-integeral matches";
         }
-        auto code = comparator.compile();
-        view->_session.filter_complex_expression(code);
+        auto signed_code = comparator.compile(false);
     }
     view->tui_notify_changed();
     return true;
