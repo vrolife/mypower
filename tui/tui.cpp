@@ -423,16 +423,17 @@ void TUI::list_mode_key(int key) {
             break;
         }
         case KEY_ENTER:
-        case '\n':
-            _editing = true;
-            invalidate();
-            if (_handler && _provider) {
-                auto command = _provider->tui_select(_content_selected_index);
-                if (not command.empty()) {                    
+        case '\n': {
+            auto command = _provider->tui_select(_content_selected_index);
+            if (not command.empty()) {                    
+                if (_handler && _provider) {
                     _handler->tui_run(command);
                 }
+                _editing = true;
+                invalidate();
             }
             break;
+        }
     }
 }
 void TUI::resize()

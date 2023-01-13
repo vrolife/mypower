@@ -29,6 +29,7 @@ namespace mypower {
 using namespace tui;
 
 struct ScanConfig {
+    std::string _name;
     std::string _expr;
     size_t _step{0};
     uint32_t _type_bits{0};

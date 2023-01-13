@@ -44,11 +44,6 @@ public:
     {
         return ((value & _mask) == _target) ^ Xor;
     }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <typename T, bool Xor=false>
@@ -69,22 +64,12 @@ public:
     {
         return (value >= _min and value <= _max) ^ Xor;
     }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <>
 class ComparatorRange<uint8_t*> {
 public:
     inline bool operator()(const uint8_t* value) const
-    {
-        return true;
-    }
-
-    inline bool operator()(...) const
     {
         return true;
     }
@@ -103,11 +88,6 @@ public:
     }
 
     inline bool operator()(const T& value) const { return value == _rhs; }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <>
@@ -128,11 +108,6 @@ public:
     {
         return memcmp(value, _rhs, _size) == 0;
     }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <typename T>
@@ -148,11 +123,6 @@ public:
     }
 
     inline bool operator()(const T& value) const { return value != _rhs; }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <>
@@ -173,11 +143,6 @@ public:
     {
         return memcmp(value, _rhs, _size) != 0;
     }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <typename T>
@@ -193,11 +158,6 @@ public:
     }
 
     inline bool operator()(const T& value) const { return value > _rhs; }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <>
@@ -206,11 +166,6 @@ public:
     ComparatorGreaterThen(const uint8_t*, size_t) { }
 
     inline bool operator()(const uint8_t* value) const
-    {
-        return true;
-    }
-
-    inline bool operator()(...) const
     {
         return true;
     }
@@ -229,11 +184,6 @@ public:
     }
 
     inline bool operator()(const T& value) const { return value < _rhs; }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <>
@@ -242,11 +192,6 @@ public:
     ComparatorLessThen(const uint8_t*, size_t) { }
 
     inline bool operator()(const uint8_t* value) const
-    {
-        return true;
-    }
-
-    inline bool operator()(...) const
     {
         return true;
     }
@@ -265,11 +210,6 @@ public:
     }
 
     inline bool operator()(const T& value) const { return value >= _rhs; }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <>
@@ -278,11 +218,6 @@ public:
     ComparatorGreaterOrEqual(const uint8_t*, size_t) { }
 
     inline bool operator()(const uint8_t* value) const
-    {
-        return true;
-    }
-
-    inline bool operator()(...) const
     {
         return true;
     }
@@ -301,11 +236,6 @@ public:
     }
 
     inline bool operator()(const T& value) const { return value <= _rhs; }
-
-    inline bool operator()(...) const
-    {
-        return true;
-    }
 };
 
 template <>
@@ -314,11 +244,6 @@ public:
     ComparatorLessOrEqual(const uint8_t*, size_t) { }
 
     inline bool operator()(const uint8_t* value) const
-    {
-        return true;
-    }
-
-    inline bool operator()(...) const
     {
         return true;
     }

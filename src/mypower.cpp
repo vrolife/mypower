@@ -64,7 +64,7 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
     std::shared_ptr<MessageView> _message_view;
     std::shared_ptr<HistoryView> _history_view;
     std::shared_ptr<TestView> _test_view;
-    std::stack<std::shared_ptr<ContentProvider>> _view_stack {};
+    std::shared_ptr<ContentProvider> _current_view {};
 
     std::shared_ptr<Process> _process;
 
@@ -115,6 +115,7 @@ public:
         _options_scan.add_options()("U16,H", po::bool_switch()->default_value(false), "16 bit unsigned integer");
         _options_scan.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
         _options_scan.add_options()("expr", po::value<std::string>(), "scan expression");
+        _options_scan.add_options()("name,n", po::value<std::string>(), "session name");
         _posiginal_scan.add("expr", 1);
 
         _options_filter.add_options()("help", "show help message");
@@ -134,38 +135,28 @@ public:
             _process = std::make_shared<Process>(pid);
         }
 
-        push(_message_view);
+        show(_message_view);
     }
 
     StyleString tui_prompt(size_t width) override
     {
         using namespace ::tui::style;
         StyleStringBuilder builder {};
-        builder << SetColor(ColorPrompt) << "Command" << ResetStyle() << "> ";
+        builder 
+            << SetColor(ColorPrompt) 
+            << (_current_session_view ? _current_session_view->session_name() : "") << ResetStyle() 
+            << "> ";
         return builder.str();
     }
 
     template <typename T>
-    void push(T&& view)
+    void show(T&& view)
     {
-        if (not _view_stack.empty() and _view_stack.top() == view) {
+        if (not view) {
             return;
         }
-        _view_stack.push(std::dynamic_pointer_cast<ContentProvider>(view));
-        _tui.show(_view_stack.top());
-    }
-
-    void pop(bool all = false)
-    {
-        while (_view_stack.size() > 1) {
-            _view_stack.pop();
-            if (not all) {
-                break;
-            }
-        }
-
-        _tui.show(_view_stack.top());
-        _view_stack.top()->tui_notify_changed();
+        _current_view = std::dynamic_pointer_cast<ContentProvider>(view);
+        _tui.show(_current_view);
     }
 
     void complete() {
@@ -217,10 +208,16 @@ public:
     {
         using namespace tui::style;
 
-        auto [command, arguments] = dsl::parse_command(line);
-        if (command.empty()) {
+        if (line.empty()) {
+            if (_current_view == _message_view) {
+                show(_current_session_view);
+            } else {
+                show(_message_view);
+            }
             return;
         }
+
+        auto [command, arguments] = dsl::parse_command(line);
 
         if (command == "selfattach") {
             command = "attach";
@@ -231,13 +228,10 @@ public:
             _tui.exit();
 
         } else if (command == "msg" or command == "mesg" or command == "message") {
-            push(_message_view);
+            show(_message_view);
 
         } else if (command == "history") {
-            push(_history_view);
-
-        } else if (command == "back") {
-            pop();
+            show(_history_view);
 
         } else if (command == "attach") {
             po::variables_map vm {};
@@ -253,23 +247,24 @@ public:
                 _message_view->stream()
                     << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
                     << e.what();
+                show(_message_view);
                 return;
             }
 
             if (pid == -1) {
                 _message_view->stream() << "Usage: attach [options] pid\n"
                                         << _options_attach;
+                show(_message_view);
                 return;
             }
 
             _message_view->stream() << "Attach process " << pid;
 
-            pop(true);
             _session_views.clear();
             _process = std::make_shared<Process>(pid);
 
         } else if (command == "ps") {
-            push(std::make_shared<ProcessList>());
+            show(std::make_shared<ProcessList>());
 
         } else if (command == "findpsex" or command == "findps") {
             po::variables_map vm {};
@@ -284,12 +279,14 @@ public:
                 _message_view->stream()
                     << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
                     << e.what();
+                show(_message_view);
                 return;
             }
 
             if (filter.empty()) {
                 _message_view->stream() << "Usage: " << command << " [options] regex\n"
                                         << _options_findps;
+                show(_message_view);
                 return;
             }
 
@@ -297,10 +294,10 @@ public:
                 filter = ".*"s + filter + ".*"s;
             }
 
-            push(std::make_shared<ProcessList>(filter));
+            show(std::make_shared<ProcessList>(filter));
 
         } else if (command == "test") {
-            push(_test_view);
+            show(_test_view);
 
         } else if (command == "scan") {
             po::variables_map vm {};
@@ -311,6 +308,11 @@ public:
             try {
                 if (vm.count("expr")) {
                     config._expr = vm["expr"].as<std::string>();
+                }
+                if (vm.count("name")) {
+                    config._name = vm["name"].as<std::string>();
+                } else {
+                    config._name = config._expr;
                 }
                 config._type_bits |= vm["I8"].as<bool>() ? MatchTypeBitI8 : 0;
                 config._type_bits |= vm["I16"].as<bool>() ? MatchTypeBitI16 : 0;
@@ -324,17 +326,24 @@ public:
                 _message_view->stream()
                     << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
                     << e.what();
+                show(_message_view);
                 return;
             }
 
             if (config._expr.empty()) {
                 _message_view->stream() << "Usage: " << command << " [options] expression\n"
                                         << _options_scan;
+                show(_message_view);
                 return;
             }
 
             if (not _process) {
-                _message_view->stream() << "Invalid target process, attach to target using the 'attach' command";
+                _message_view->stream() 
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " Invalid target process, attach to target using the 'attach' command";
+                show(_message_view);
                 return;
             }
 
@@ -343,12 +352,13 @@ public:
                 if (view) {
                     _session_views.emplace_back(view);
                     _current_session_view = view;
-                    push(view);
+                    show(view);
                 }
             } catch(const std::exception& e) {
                 _message_view->stream()
-                    << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() << " "
+                    << SetColor(ColorError) << "Error:" << ResetStyle() << " "
                     << e.what();
+                show(_message_view);                    
                 return;
             }
 
@@ -372,6 +382,7 @@ public:
             if (config._expr.empty()) {
                 _message_view->stream() << "Usage: " << command << " [options] expression\n"
                                         << _options_filter;
+                show(_message_view);
                 return;
             }
 
@@ -381,11 +392,17 @@ public:
                     << "Error:"
                     << ResetStyle()
                     << " No avaliable session, create a session using the 'scan' command";
+                show(_message_view);
                 return;
             }
 
             if (not _process) {
-                _message_view->stream() << "Invalid target process: attach to target using the 'attach' command";
+                _message_view->stream() 
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " Invalid target process: attach to target using the 'attach' command";
+                show(_message_view);
                 return;
             }
 
@@ -395,6 +412,7 @@ public:
                 _message_view->stream()
                     << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() << " "
                     << e.what();
+                show(_message_view);
                 return;
             }
 
@@ -411,8 +429,8 @@ public:
             update(_message_view, _current_session_view);
 
         } else if (command == "refresh-view") {
-            if (not _view_stack.empty()) {
-                _view_stack.top()->tui_notify_changed();
+            if (_current_view) {
+                _current_view->tui_notify_changed();
             }
 
         } else if (command == "session") {
@@ -425,6 +443,7 @@ public:
                     << "Error:"
                     << ResetStyle()
                     << " No avaliable session, create a session using the 'scan' command";
+                show(_message_view);
                 return;
             }
 
@@ -438,8 +457,9 @@ public:
                         << ResetStyle() << " "
                         << SetStyle(AttrUnderline)
                         << session->session_name();
-                    return;
                 }
+                show(_message_view);
+                return;
             }
 
             ssize_t index = -1;
@@ -462,21 +482,23 @@ public:
                     << "Error:"
                     << ResetStyle()
                     << " Invalid session name/index";
+                show(_message_view);
                 return;
             }
             
             _current_session_view = _session_views.at(index);
-            push(_current_session_view);
+            show(_current_session_view);
 
         } else {
             using namespace tui::style;
             _message_view->stream()
-                << EnableStyle(AttrUnderline) << SetColor(ColorWarning) << "Unknown command:"
+                << SetColor(ColorWarning) << "Unknown command:"
                 << ResetStyle() << " " << line;
-            push(_message_view);
+            show(_message_view);
+            return;
         }
 
-        _history_view->push_back(command);
+        _history_view->push_back(line);
     }
 };
 

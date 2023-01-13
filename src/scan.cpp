@@ -66,17 +66,22 @@ public:
 
 class SessionViewImpl : public SessionView
 {
+    std::string _name;
     std::string _expr;
 public:
     Session _session;
 
-    SessionViewImpl(std::shared_ptr<Process>& process, const std::string& expr)
+    SessionViewImpl(
+        std::shared_ptr<Process>& process, 
+        const std::string& name, 
+        const std::string& expr)
     : _session(process, 8 * 1024 * 1024)
+    , _name(name)
     , _expr(expr)
     { }
 
     const std::string session_name() override {
-        return _expr;
+        return _name;
     }
 
     StyleString tui_title(size_t width) override
@@ -160,7 +165,7 @@ std::shared_ptr<SessionView> scan(
     ScanConfig& config
 )
 {
-    auto view = std::make_shared<SessionViewImpl>(process, config._expr);
+    auto view = std::make_shared<SessionViewImpl>(process, config._name, config._expr);
 
     SuspendProcess suspend{process, config._suspend_same_user, process->pid() != ::getpid()};
 

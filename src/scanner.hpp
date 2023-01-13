@@ -153,6 +153,73 @@ public:
     }
 
     template<typename T>
+    void update_memory_region(T&& regions)
+    {
+        _memory_regions = std::forward<T>(regions);
+    }
+
+    void reset()
+    {
+        _memory_regions.clear();
+
+#define __RESET(t) \
+        _matches_##t.clear();
+    MATCH_TYPES(__RESET);
+#undef __RESET
+    }
+
+    template<typename T>
+    const auto& get() const
+    {
+#define __GET(t) \
+        if constexpr (std::is_same<T, type##t>::value) { \
+            return _matches_##t; \
+        }
+
+    MATCH_TYPES(__GET);
+#undef __GET
+    }
+
+    size_t size() const
+    {
+        size_t sz = 0;
+#define __SIZE(t) \
+        sz += _matches_##t.size();
+    MATCH_TYPES(__SIZE);
+#undef __SIZE
+        return sz;
+    }
+
+    std::string str(size_t index) const {
+        size_t offset = 0;
+#define __STR(t) \
+        if (index >= offset and index < (offset + _matches_##t.size())) { \
+            return to_string(_matches_##t.at(index - offset)); \
+        } \
+        offset += _matches_##t.size();
+
+    MATCH_TYPES(__STR);
+#undef __STR
+        throw std::out_of_range("index out of range");
+    }
+    
+#define __SIZE(t) \
+    size_t t##_size() const { \
+        return _matches_##t.size(); \
+    }
+
+    MATCH_TYPES(__SIZE);
+#undef __SIZE
+
+#define __AT(t) \
+    auto t##_at(size_t index) const { \
+        return _matches_##t.at(index); \
+    }
+
+    MATCH_TYPES(__AT);
+#undef __AT
+
+    template<typename T>
     void add_match(T&& match) {
 #define __ADD_MATCH(t) \
         if constexpr (std::is_same<T, Match##t>::value) { \
@@ -348,45 +415,6 @@ public:
     MATCH_TYPES_INTEGER(__UPDATE);
 #undef __UPDATE
     }
-
-    size_t size() const
-    {
-        size_t sz = 0;
-#define __SIZE(t) \
-        sz += _matches_##t.size();
-    MATCH_TYPES(__SIZE);
-#undef __SIZE
-        return sz;
-    }
-
-    std::string str(size_t index) const {
-        size_t offset = 0;
-#define __STR(t) \
-        if (index >= offset and index < (offset + _matches_##t.size())) { \
-            return to_string(_matches_##t.at(index - offset)); \
-        } \
-        offset += _matches_##t.size();
-
-    MATCH_TYPES(__STR);
-#undef __STR
-        throw std::out_of_range("index out of range");
-    }
-    
-#define __SIZE(t) \
-    size_t t##_size() const { \
-        return _matches_##t.size(); \
-    }
-
-    MATCH_TYPES(__SIZE);
-#undef __SIZE
-
-#define __AT(t) \
-    auto t##_at(size_t index) const { \
-        return _matches_##t.at(index); \
-    }
-
-    MATCH_TYPES(__AT);
-#undef __AT
 };
 
 template <typename Comparator>
