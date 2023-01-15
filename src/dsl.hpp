@@ -17,10 +17,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #ifndef __dsl_hpp__
 #define __dsl_hpp__
 
-#include <string>
-#include <vector>
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace mathexpr {
 class ASTNode;
@@ -55,20 +55,25 @@ class JITCode {
 
 public:
     JITCode(void* code, size_t length)
-    : _code(code), _length(length)
-    { }
-    ~JITCode() {
+        : _code(code)
+        , _length(length)
+    {
+    }
+    ~JITCode()
+    {
         this->free_code();
     }
     JITCode(const JITCode&) = delete;
     JITCode& operator=(const JITCode&) = delete;
-    JITCode(JITCode&& other) noexcept {
+    JITCode(JITCode&& other) noexcept
+    {
         _code = other._code;
         _length = other._length;
         other._code = nullptr;
         other._length = 0;
     }
-    JITCode& operator=(JITCode&& other) noexcept {
+    JITCode& operator=(JITCode&& other) noexcept
+    {
         this->free_code();
         _code = other._code;
         _length = other._length;
@@ -77,7 +82,8 @@ public:
         return *this;
     }
 
-    uintptr_t operator()(uintptr_t old, uintptr_t _new, uintptr_t addr) const {
+    uintptr_t operator()(uintptr_t old, uintptr_t _new, uintptr_t addr) const
+    {
         return ((uintptr_t(*)(uintptr_t, uintptr_t, uintptr_t))_code)(old, _new, addr);
     }
 
@@ -86,13 +92,13 @@ private:
 };
 
 struct ComparatorExpression {
-    ComparatorType _comparator{ComparatorType::None};
+    ComparatorType _comparator { ComparatorType::None };
 
-    std::unique_ptr<mathexpr::ASTNode> _expr1{};
-    std::unique_ptr<mathexpr::ASTNode> _expr2{};
+    std::unique_ptr<mathexpr::ASTNode> _expr1 {};
+    std::unique_ptr<mathexpr::ASTNode> _expr2 {};
 
-    std::optional<uintptr_t> _constant1{};
-    std::optional<uintptr_t> _constant2{};
+    std::optional<uintptr_t> _constant1 {};
+    std::optional<uintptr_t> _constant2 {};
 
     ComparatorExpression() = default;
     ComparatorExpression(ComparatorExpression&&) noexcept = default;
@@ -101,10 +107,10 @@ struct ComparatorExpression {
     ComparatorExpression& operator=(ComparatorExpression&&) noexcept = default;
     ~ComparatorExpression();
 
-    JITCode compile(bool _unsigned=false);
+    JITCode compile(bool _unsigned = false);
 };
 
-JITCode compile_math_expression(const std::string& string, bool _unsigned=false);
+JITCode compile_math_expression(const std::string& string, bool _unsigned = false);
 
 ComparatorExpression parse_comparator_expression(const std::string& string);
 

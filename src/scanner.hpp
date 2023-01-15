@@ -30,8 +30,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <sstream>
 
 #include "comparator.hpp"
-#include "process.hpp"
 #include "matchvalue.hpp"
+#include "process.hpp"
 
 #if USE_SIMD
 #include <simdjson/arm64/simd.h>
@@ -107,7 +107,7 @@ public:
         auto read_size = std::min(_cache_capacity, (_end_addr - addr).get());
         _cached_size = _process->read(addr, cache, read_size);
         if (_cached_size == -1) {
-            std::ostringstream oss{};
+            std::ostringstream oss {};
             oss << "Read memory failed: "s + strerror(errno) << ". "
                 << std::hex << "0x" << addr.get() << " (0x" << read_size << ")";
             throw std::runtime_error(oss.str());
@@ -142,28 +142,30 @@ class Session {
 
 public:
     Session(std::shared_ptr<Process>& process, size_t cache_size)
-        : _process(process), _cache_size(cache_size)
+        : _process(process)
+        , _cache_size(cache_size)
     {
     }
 
     ~Session()
     {
     }
-    
+
     bool update_memory_region()
     {
         _memory_regions = VMRegion::snapshot(_process->pid());
         return not _memory_regions.empty();
     }
 
-    template<typename T>
+    template <typename T>
     void update_memory_region(T&& regions)
     {
         _memory_regions = std::forward<T>(regions);
     }
 
-    template<typename T>
-    void find_region(VMAddress addr, T&& cb) {
+    template <typename T>
+    void find_region(VMAddress addr, T&& cb)
+    {
         for (auto& region : _memory_regions) {
             if (addr >= region._begin and addr < region._end) {
                 cb(region);
@@ -177,20 +179,20 @@ public:
         _memory_regions.clear();
 
 #define __RESET(t) \
-        _matches_##t.clear();
-    MATCH_TYPES(__RESET);
+    _matches_##t.clear();
+        MATCH_TYPES(__RESET);
 #undef __RESET
     }
 
-    template<typename T>
+    template <typename T>
     const auto& get() const
     {
-#define __GET(t) \
-        if constexpr (std::is_same<T, type##t>::value) { \
-            return _matches_##t; \
-        }
+#define __GET(t)                                     \
+    if constexpr (std::is_same<T, type##t>::value) { \
+        return _matches_##t;                         \
+    }
 
-    MATCH_TYPES(__GET);
+        MATCH_TYPES(__GET);
 #undef __GET
     }
 
@@ -198,48 +200,52 @@ public:
     {
         size_t sz = 0;
 #define __SIZE(t) \
-        sz += _matches_##t.size();
-    MATCH_TYPES(__SIZE);
+    sz += _matches_##t.size();
+        MATCH_TYPES(__SIZE);
 #undef __SIZE
         return sz;
     }
 
-    std::unique_ptr<AccessMatch> access(size_t index) const {
+    std::unique_ptr<AccessMatch> access(size_t index) const
+    {
         size_t offset = 0;
-#define __ACCESS(t) \
-        if (index >= offset and index < (offset + _matches_##t.size())) { \
-            return access_match(_matches_##t.at(index - offset)); \
-        } \
-        offset += _matches_##t.size();
+#define __ACCESS(t)                                                   \
+    if (index >= offset and index < (offset + _matches_##t.size())) { \
+        return access_match(_matches_##t.at(index - offset));         \
+    }                                                                 \
+    offset += _matches_##t.size();
 
-    MATCH_TYPES(__ACCESS);
+        MATCH_TYPES(__ACCESS);
 #undef __ACCESS
         throw std::out_of_range("index out of range");
     }
-    
-#define __SIZE(t) \
-    size_t t##_size() const { \
+
+#define __SIZE(t)                   \
+    size_t t##_size() const         \
+    {                               \
         return _matches_##t.size(); \
     }
 
     MATCH_TYPES(__SIZE);
 #undef __SIZE
 
-#define __AT(t) \
-    auto t##_at(size_t index) const { \
+#define __AT(t)                        \
+    auto t##_at(size_t index) const    \
+    {                                  \
         return _matches_##t.at(index); \
     }
 
     MATCH_TYPES(__AT);
 #undef __AT
 
-    template<typename T>
-    void add_match(T&& match) {
-#define __ADD_MATCH(t) \
-        if constexpr (std::is_same<T, Match##t>::value) { \
-            _matches_##t.emplace_back(std::move(match)); \
-        }
-    MATCH_TYPES(__ADD_MATCH);
+    template <typename T>
+    void add_match(T&& match)
+    {
+#define __ADD_MATCH(t)                                \
+    if constexpr (std::is_same<T, Match##t>::value) { \
+        _matches_##t.emplace_back(std::move(match));  \
+    }
+        MATCH_TYPES(__ADD_MATCH);
 #undef __ADD_MATCH
     }
 
@@ -272,7 +278,7 @@ public:
     }
 
     template <typename Filter, typename M>
-    void filter(M& matches, const Filter& filter={})
+    void filter(M& matches, const Filter& filter = {})
     {
         typedef typename M::value_type MatchType;
         typedef typename MatchType::type ValueType;
@@ -301,8 +307,7 @@ public:
         new_matchs.reserve(matches.size());
 
         size_t offset = 0;
-        for (auto& match : matches) 
-        {
+        for (auto& match : matches) {
             auto* ptr = local_buffer.data() + offset;
             offset += sizeof(ValueType);
 
@@ -316,8 +321,8 @@ public:
                     new_matchs.emplace_back(std::move(match));
                 }
             } else {
-                typename Filter::template Comparator<ValueType> comparator{match._value};
-                
+                typename Filter::template Comparator<ValueType> comparator { match._value };
+
                 if (comparator(value)) {
                     match._value = value;
                     new_matchs.emplace_back(std::move(match));
@@ -333,12 +338,12 @@ public:
     {
         static_assert(sizeof(Filter) == 1, "see filter_complex_expression");
 
-#define __FILTER(t) \
-        if constexpr (IsSuitableFilter<Filter, type##t>::value) { \
-            filter<Filter>(_matches_##t); \
-        }
+#define __FILTER(t)                                           \
+    if constexpr (IsSuitableFilter<Filter, type##t>::value) { \
+        filter<Filter>(_matches_##t);                         \
+    }
 
-    MATCH_TYPES(__FILTER);
+        MATCH_TYPES(__FILTER);
 #undef __FILTER
     }
 
@@ -381,12 +386,12 @@ public:
     template <typename Filter>
     void filter(uintptr_t constant1, uintptr_t constant2)
     {
-#define __FILTER(t) \
-        if constexpr (IsSuitableFilter<Filter, type##t>::value) { \
-            filter<Filter>(_matches_##t, constant1, constant2); \
-        }
+#define __FILTER(t)                                           \
+    if constexpr (IsSuitableFilter<Filter, type##t>::value) { \
+        filter<Filter>(_matches_##t, constant1, constant2);   \
+    }
 
-    MATCH_TYPES(__FILTER);
+        MATCH_TYPES(__FILTER);
 #undef __FILTER
     }
 
@@ -395,9 +400,9 @@ public:
     {
         static_assert(sizeof(Code) != 1, "see filter_complex_expression");
 #define __FILTER(t) \
-        filter<Code>(_matches_##t, std::is_signed<type##t>::value ? signed_code : unsigned_code);
+    filter<Code>(_matches_##t, std::is_signed<type##t>::value ? signed_code : unsigned_code);
 
-    MATCH_TYPES_INTEGER(__FILTER);
+        MATCH_TYPES_INTEGER(__FILTER);
 #undef __FILTER
     }
 
@@ -428,9 +433,9 @@ public:
     void update_matches()
     {
 #define __UPDATE(t) \
-        update_matches(_matches_##t);
+    update_matches(_matches_##t);
 
-    MATCH_TYPES_INTEGER(__UPDATE);
+        MATCH_TYPES_INTEGER(__UPDATE);
 #undef __UPDATE
     }
 };
@@ -440,6 +445,7 @@ class ScanComparator {
 public:
     typedef typename Comparator::Type ValueType;
     typedef typename GetMatchType<ValueType>::type MatchType;
+
 private:
     static_assert(std::is_integral<ValueType>::value or std::is_floating_point<ValueType>::value, "Number only");
 
@@ -448,7 +454,8 @@ private:
 
 public:
     ScanComparator(Comparator&& comparator, size_t step)
-        : _comparator { comparator }, _step(step)
+        : _comparator { comparator }
+        , _step(step)
     {
         assert(_step > 0);
     }
@@ -499,18 +506,20 @@ public:
     }
 };
 
-template<typename T, typename Callable>
+template <typename T, typename Callable>
 class ScanExpression {
 public:
     typedef T ValueType;
     typedef typename GetMatchType<ValueType>::type MatchType;
+
 private:
     Callable _callable;
     size_t _step;
 
 public:
     ScanExpression(Callable&& callable, size_t step)
-        : _callable { std::move(callable) }, _step(step)
+        : _callable { std::move(callable) }
+        , _step(step)
     {
         assert(_step > 0);
     }

@@ -28,7 +28,9 @@ class Dump : public Command {
     po::positional_options_description _posiginal {};
 
 public:
-    Dump(Application& app) : Command(app) {
+    Dump(Application& app)
+        : Command(app)
+    {
         _options.add_options()("help", "show help message");
         _options.add_options()("I64,q", po::bool_switch()->default_value(false), "64 bit integer");
         _options.add_options()("I32,i", po::bool_switch()->default_value(false), "32 bit integer");
@@ -47,11 +49,13 @@ public:
         _posiginal.add("count", 1);
     }
 
-    bool match(const std::string& command) override {
+    bool match(const std::string& command) override
+    {
         return command == "dump";
     }
 
-    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+    void run(const std::string& command, const std::vector<std::string>& arguments) override
+    {
         PROGRAM_OPTIONS();
 
         // DumpArgs args;
@@ -99,6 +103,6 @@ public:
     }
 };
 
-static RegisterCommand<Dump> _Dump{};
+static RegisterCommand<Dump> _Dump {};
 
 } // namespace mypower

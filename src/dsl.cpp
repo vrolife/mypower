@@ -18,8 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "dsl.hpp"
 
-#include "mathexpr.hpp"
 #include "cmdline.hpp"
+#include "mathexpr.hpp"
 
 #include "compexpr.hpp"
 #include "compexpr_parser.hpp"
@@ -27,11 +27,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace dsl {
 
-static JITCode compile_ast(std::unique_ptr<mathexpr::ASTNode>&& ast, bool _unsigned=false) {
+static JITCode compile_ast(std::unique_ptr<mathexpr::ASTNode>&& ast, bool _unsigned = false)
+{
     void* code = nullptr;
     size_t length = 0;
 
-    mathexpr::Compiler compiler{};
+    mathexpr::Compiler compiler {};
     compiler._unsigned = _unsigned;
     compiler._local_size = 3;
     compiler._local_vars.emplace("$old", 0);
@@ -53,12 +54,13 @@ static JITCode compile_ast(std::unique_ptr<mathexpr::ASTNode>&& ast, bool _unsig
     code = sljit_generate_code(compiler);
     length = sljit_get_generated_code_size(compiler);
 
-    return JITCode{code, length};
+    return JITCode { code, length };
 }
 
 ComparatorExpression::~ComparatorExpression() { }
 
-JITCode ComparatorExpression::compile(bool _unsigned) {
+JITCode ComparatorExpression::compile(bool _unsigned)
+{
     using namespace mathexpr;
     switch (_comparator) {
     case ComparatorType::EQ_Expr:
@@ -101,7 +103,8 @@ JITCode ComparatorExpression::compile(bool _unsigned) {
     ::abort();
 }
 
-void JITCode::free_code() {
+void JITCode::free_code()
+{
     if (_code) {
         sljit_free_code(_code, nullptr);
         _code = nullptr;
@@ -109,7 +112,8 @@ void JITCode::free_code() {
     }
 }
 
-JITCode compile_math_expression(const std::string& string, bool _unsigned) {
+JITCode compile_math_expression(const std::string& string, bool _unsigned)
+{
     return compile_ast(mathexpr::parse(string), _unsigned);
 }
 
@@ -117,12 +121,12 @@ ComparatorExpression parse_comparator_expression(const std::string& string)
 {
     using namespace compexpr;
     struct Context { };
-    std::istringstream iss{string};
-    Tokenizer tokenizer{"<commandline>", iss, std::cout};
-    Parser<Context> parser{};
-    Context context{};
+    std::istringstream iss { string };
+    Tokenizer tokenizer { "<commandline>", iss, std::cout };
+    Parser<Context> parser {};
+    Context context {};
     auto comparator = parser.parse(context, tokenizer);
-    
+
     if (comparator._expr1) {
         auto* num = dynamic_cast<mathexpr::ASTNumber*>(comparator._expr1.get());
         if (num) {
@@ -140,11 +144,12 @@ ComparatorExpression parse_comparator_expression(const std::string& string)
     return comparator;
 }
 
-std::pair<std::string, std::vector<std::string>> parse_command(const std::string& string) {
+std::pair<std::string, std::vector<std::string>> parse_command(const std::string& string)
+{
     try {
         return cmdline::parse(string);
-    } catch(...) {
-        return {{},{}};
+    } catch (...) {
+        return { {}, {} };
     }
 }
 

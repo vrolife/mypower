@@ -29,7 +29,7 @@ class TestView : public VisibleContainer<ssize_t> {
 public:
     TestView()
     {
-        std::random_device rd{};
+        std::random_device rd {};
         std::uniform_int_distribution<ssize_t> dist(0, 1000);
         emplace_back(dist(rd));
         emplace_back(0);
@@ -47,10 +47,10 @@ public:
     {
         switch (index) {
         case 0: {
-            std::ostringstream os{};
-            os << "INT32: " << at(0) 
-                << " 0x" << std::hex << at(0) 
-                << " 0o" << std::oct << at(0);
+            std::ostringstream os {};
+            os << "INT32: " << at(0)
+               << " 0x" << std::hex << at(0)
+               << " 0o" << std::oct << at(0);
             return StyleString { os.str() };
         }
         case 1:
@@ -65,29 +65,30 @@ public:
         return {};
     }
 
-    std::string tui_select(size_t index) override {
-        switch(index) {
-            case 0: {
-                std::ostringstream os;
-                os << "scan -i =" << at(0);
-                return os.str();
-            }
-            case 1:
-                at(0) += 1;
-                tui_notify_changed();
-                break;
-            case 2:
-                at(0) -= 1;
-                tui_notify_changed();
-                break;
-            case 3:
-                at(0) += 5;
-                tui_notify_changed();
-                break;
-            case 4:
-                at(0) -= 5;
-                tui_notify_changed();
-                break;
+    std::string tui_select(size_t index) override
+    {
+        switch (index) {
+        case 0: {
+            std::ostringstream os;
+            os << "scan -i =" << at(0);
+            return os.str();
+        }
+        case 1:
+            at(0) += 1;
+            tui_notify_changed();
+            break;
+        case 2:
+            at(0) -= 1;
+            tui_notify_changed();
+            break;
+        case 3:
+            at(0) += 5;
+            tui_notify_changed();
+            break;
+        case 4:
+            at(0) -= 5;
+            tui_notify_changed();
+            break;
         }
         return {};
     }
@@ -100,7 +101,9 @@ class Test : public Command {
     po::positional_options_description _posiginal {};
 
 public:
-    Test(Application& app) : Command(app) {
+    Test(Application& app)
+        : Command(app)
+    {
         _options.add_options()("help", "show help message");
         _options.add_options()("value", po::value<ssize_t>(), "set value");
         _posiginal.add("value", 1);
@@ -108,11 +111,13 @@ public:
         _test_view = std::make_shared<TestView>();
     }
 
-    bool match(const std::string& command) override {
+    bool match(const std::string& command) override
+    {
         return command == "test";
     }
 
-    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+    void run(const std::string& command, const std::vector<std::string>& arguments) override
+    {
 
         PROGRAM_OPTIONS();
 
@@ -132,6 +137,6 @@ public:
     }
 };
 
-static RegisterCommand<Test> _Test{};
+static RegisterCommand<Test> _Test {};
 
 } // namespace mypower

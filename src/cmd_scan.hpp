@@ -17,28 +17,28 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #ifndef __cmd_scan_hpp__
 #define __cmd_scan_hpp__
 
+#include "mypower.hpp"
+
 namespace mypower {
 
 struct ScanArgs {
     std::string _name;
     std::string _expr;
-    size_t _step{0};
-    uint32_t _type_bits{0};
-    uint32_t _memofy_flags{kRegionFlagReadWrite};
-    bool _suspend_same_user{false};
+    size_t _step { 0 };
+    uint32_t _type_bits { 0 };
+    uint32_t _memofy_flags { kRegionFlagReadWrite };
+    bool _suspend_same_user { false };
 };
 
 std::shared_ptr<SessionView> scan(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<Process>& process,
-    ScanArgs& config
-);
+    ScanArgs& config);
 
 bool filter(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<SessionView>& session_view,
-    ScanArgs& config
-);
+    ScanArgs& config);
 
 } // namespace mypower
 

@@ -23,19 +23,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "vmmap.hpp"
 
 #define MATCH_TYPES_INTEGER(F) \
-    F(U8) \
-    F(U16) \
-    F(U32) \
-    F(U64) \
-    F(I8) \
-    F(I16) \
-    F(I32) \
+    F(U8)                      \
+    F(U16)                     \
+    F(U32)                     \
+    F(U64)                     \
+    F(I8)                      \
+    F(I16)                     \
+    F(I32)                     \
     F(I64)
 
-#define MATCH_TYPES(F) \
+#define MATCH_TYPES(F)     \
     MATCH_TYPES_INTEGER(F) \
-    F(FLOAT) \
-    F(DOUBLE) \
+    F(FLOAT)               \
+    F(DOUBLE)              \
     F(BYTES)
 
 namespace mypower {
@@ -95,27 +95,32 @@ union UnionValue {
     uint8_t _bytes[0];
 };
 
-template<typename T>
+template <typename T>
 struct GetMatchType;
 
-#define __MATCH(t) \
-    struct Match##t { \
-        typedef type##t type; \
-        VMAddress _addr; \
-        type##t _value; \
-        Match##t(VMAddress&& addr, type##t && value) \
-        : _addr(std::move(addr)), _value(std::move(value)) {} \
-    }; \
-    template<> \
-    struct GetMatchType<type##t> { typedef Match##t type; };
+#define __MATCH(t)                                  \
+    struct Match##t {                               \
+        typedef type##t type;                       \
+        VMAddress _addr;                            \
+        type##t _value;                             \
+        Match##t(VMAddress&& addr, type##t&& value) \
+            : _addr(std::move(addr))                \
+            , _value(std::move(value))              \
+        {                                           \
+        }                                           \
+    };                                              \
+    template <>                                     \
+    struct GetMatchType<type##t> {                  \
+        typedef Match##t type;                      \
+    };
 
 MATCH_TYPES(__MATCH);
 #undef __MATCH
 
-#define __TYPE_TO_STRING(t) \
-    inline \
-    const char* type_to_string(const type##t &) { \
-        return #t; \
+#define __TYPE_TO_STRING(t)                           \
+    inline const char* type_to_string(const type##t&) \
+    {                                                 \
+        return #t;                                    \
     }
 
 MATCH_TYPES(__TYPE_TO_STRING);
@@ -129,67 +134,83 @@ struct AccessMatch {
     virtual void type(std::ostringstream& oss) = 0;
 };
 
-template<typename T>
+template <typename T>
 class AccessMatchNumber : public AccessMatch {
     const T* _ptr;
-public:
-    AccessMatchNumber(const T* ptr) : _ptr{ptr} { }
 
-    VMAddress address() override {
+public:
+    AccessMatchNumber(const T* ptr)
+        : _ptr { ptr }
+    {
+    }
+
+    VMAddress address() override
+    {
         return _ptr->_addr;
     }
 
-    void value(std::ostringstream& oss) override {
+    void value(std::ostringstream& oss) override
+    {
         oss << _ptr->_value;
     }
 
-    std::string type() override {
+    std::string type() override
+    {
         return type_to_string(_ptr->_value);
     }
 
-    void type(std::ostringstream& oss) override {
+    void type(std::ostringstream& oss) override
+    {
         oss << type_to_string(_ptr->_value);
     }
 };
 
-template<typename T>
+template <typename T>
 class AccessMatchUnknown : public AccessMatch {
     const T* _ptr;
-public:
-    AccessMatchUnknown(const T* ptr) : _ptr{ptr} { }
 
-    VMAddress address() override {
+public:
+    AccessMatchUnknown(const T* ptr)
+        : _ptr { ptr }
+    {
+    }
+
+    VMAddress address() override
+    {
         return _ptr->_addr;
     }
 
-    void value(std::ostringstream& oss) override {
+    void value(std::ostringstream& oss) override
+    {
         oss << "TODO convert bytes to hex string";
     }
 
-    std::string type() override {
+    std::string type() override
+    {
         return type_to_string(_ptr->_value);
     }
 
-    void type(std::ostringstream& oss) override {
+    void type(std::ostringstream& oss) override
+    {
         oss << type_to_string(_ptr->_value);
     }
 };
 
-template<typename T>
-inline 
-typename std::enable_if<
-    std::is_integral<typename T::type>::value
-    or std::is_floating_point<typename T::type>::value
-    , std::unique_ptr<AccessMatch>>::
-type access_match(const T& match)
+template <typename T>
+inline
+    typename std::enable_if<
+        std::is_integral<typename T::type>::value
+            or std::is_floating_point<typename T::type>::value,
+        std::unique_ptr<AccessMatch>>::
+        type
+        access_match(const T& match)
 {
-    return std::unique_ptr<AccessMatch>{new AccessMatchNumber<T>(&match)};
+    return std::unique_ptr<AccessMatch> { new AccessMatchNumber<T>(&match) };
 }
 
-inline
-std::unique_ptr<AccessMatch> access_match(const MatchBYTES& match)
+inline std::unique_ptr<AccessMatch> access_match(const MatchBYTES& match)
 {
-    return std::unique_ptr<AccessMatch>{new AccessMatchUnknown<MatchBYTES>(&match)};
+    return std::unique_ptr<AccessMatch> { new AccessMatchUnknown<MatchBYTES>(&match) };
 }
 
 } // namespace mypower

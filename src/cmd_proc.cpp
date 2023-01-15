@@ -26,14 +26,16 @@ using namespace std::string_literals;
 namespace mypower {
 
 class ProcessListView : public VisibleContainer<std::pair<pid_t, std::string>> {
-    std::string _filter{};
+    std::string _filter {};
+
 public:
-    ProcessListView() {
+    ProcessListView()
+    {
         refresh();
     }
 
     ProcessListView(const std::string& filter)
-    :_filter{filter}
+        : _filter { filter }
     {
         refresh();
     }
@@ -49,30 +51,31 @@ public:
         using namespace tui::style;
 
         if (index >= this->size()) {
-            return StyleString{};
+            return StyleString {};
         }
 
         auto& data = this->at(index);
-        
-        StyleStringBuilder builder{};
+
+        StyleStringBuilder builder {};
         builder << data.first << '\t' << data.second;
 
         return builder.release();
     }
 
-    std::string tui_select(size_t index) {
+    std::string tui_select(size_t index)
+    {
         if (index >= this->size()) {
             return {};
         }
         auto& data = this->at(index);
-        std::ostringstream command{};
+        std::ostringstream command {};
         command << "attach " << data.first << std::endl;
         return command.str();
     }
 
     void refresh()
     {
-        std::regex regexp{_filter, std::regex::grep};
+        std::regex regexp { _filter, std::regex::grep };
 
         clear();
         for_each_process([&](pid_t pid) {
@@ -82,7 +85,7 @@ public:
                     return;
                 }
             }
-            this->emplace_back(std::pair<pid_t, std::string>{ pid, std::move(comm) });
+            this->emplace_back(std::pair<pid_t, std::string> { pid, std::move(comm) });
         });
         tui_notify_changed();
     }
@@ -93,17 +96,21 @@ class ListProcess : public Command {
     po::positional_options_description _posiginal {};
 
 public:
-    ListProcess(Application& app) : Command(app) {
+    ListProcess(Application& app)
+        : Command(app)
+    {
         _options.add_options()("help", "show help message");
         _options.add_options()("filter,f", po::value<std::string>(), "regex filter");
         _posiginal.add("filter", 1);
     }
 
-    bool match(const std::string& command) override {
+    bool match(const std::string& command) override
+    {
         return command == "ps" or command == "findps" or command == "findpsex";
     }
 
-    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+    void run(const std::string& command, const std::vector<std::string>& arguments) override
+    {
         if (command == "ps") {
             show(std::make_shared<ProcessListView>());
             return;
@@ -127,7 +134,7 @@ public:
 
         if (filter.empty()) {
             message() << "Usage: " << command << " [options] regex\n"
-                                    << _options;
+                      << _options;
             show();
             return;
         }
@@ -140,6 +147,6 @@ public:
     }
 };
 
-static RegisterCommand<ListProcess> _ListProcess{};
+static RegisterCommand<ListProcess> _ListProcess {};
 
 } // namespace mypower

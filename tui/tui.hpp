@@ -24,40 +24,40 @@ SOFTWARE.
 #ifndef __tui_hpp__
 #define __tui_hpp__
 
-#include <cstring>
 #include <cassert>
+#include <cstring>
 
 #include <algorithm>
 
 #include <ncurses/ncurses.h>
 
+#include <memory>
 #include <sstream>
 #include <string>
-#include <vector>
 #include <tuple>
-#include <memory>
+#include <vector>
 
 namespace tui {
 class StyleStringBuilder;
 
 namespace style {
     enum Attribute {
-        AttrNormal = A_NORMAL,	
-        AttrStandout = A_STANDOUT,	
-        AttrUnderline = A_UNDERLINE,	
-        AttrReverse = A_REVERSE,	
-        AttrBlink = A_BLINK,		
-        AttrDim = A_DIM,		
-        AttrBold = A_BOLD,		
+        AttrNormal = A_NORMAL,
+        AttrStandout = A_STANDOUT,
+        AttrUnderline = A_UNDERLINE,
+        AttrReverse = A_REVERSE,
+        AttrBlink = A_BLINK,
+        AttrDim = A_DIM,
+        AttrBold = A_BOLD,
         AttrAltcharset = A_ALTCHARSET,
-        AttrInvis = A_INVIS,		
-        AttrProtect = A_PROTECT,	
+        AttrInvis = A_INVIS,
+        AttrProtect = A_PROTECT,
         AttrHorizontal = A_HORIZONTAL,
-        AttrLeft = A_LEFT,		
-        AttrLow = A_LOW,		
-        AttrRight = A_RIGHT,		
-        AttrTop = A_TOP,		
-        AttrVertical = A_VERTICAL,	
+        AttrLeft = A_LEFT,
+        AttrLow = A_LOW,
+        AttrRight = A_RIGHT,
+        AttrTop = A_TOP,
+        AttrVertical = A_VERTICAL,
     };
 
     enum Color {
@@ -73,29 +73,45 @@ namespace style {
     class SetStyle {
         friend class ::tui::StyleStringBuilder;
         NCURSES_CH_T _style;
+
     public:
-        SetStyle(NCURSES_CH_T style) : _style(style) { }
+        SetStyle(NCURSES_CH_T style)
+            : _style(style)
+        {
+        }
     };
 
     class SetColor {
         friend class ::tui::StyleStringBuilder;
         NCURSES_CH_T _style;
+
     public:
-        SetColor(Color color) : _style(COLOR_PAIR(color)) { }
+        SetColor(Color color)
+            : _style(COLOR_PAIR(color))
+        {
+        }
     };
 
     class EnableStyle {
         friend class ::tui::StyleStringBuilder;
         NCURSES_CH_T _style;
+
     public:
-        EnableStyle(NCURSES_CH_T style) : _style(style) { }
+        EnableStyle(NCURSES_CH_T style)
+            : _style(style)
+        {
+        }
     };
 
     class DisableStyle {
         friend class ::tui::StyleStringBuilder;
         NCURSES_CH_T _style;
+
     public:
-        DisableStyle(NCURSES_CH_T style) : _style(style) { }
+        DisableStyle(NCURSES_CH_T style)
+            : _style(style)
+        {
+        }
     };
 
     struct ResetStyle { };
@@ -111,9 +127,9 @@ enum class LayoutAlign {
 class StyleString {
     friend class StyleStringBuilder;
 
-    std::string _string{};
-    std::string _bytecode{};
-    
+    std::string _string {};
+    std::string _bytecode {};
+
     enum Bytecode {
         BytecodeNop = 0,
         BytecodeString8 = 1,
@@ -128,34 +144,42 @@ class StyleString {
     };
 
     StyleString(std::string&& string, std::string&& bytecode)
-    : _string(std::move(string)), _bytecode(std::move(bytecode))
-    { }
+        : _string(std::move(string))
+        , _bytecode(std::move(bytecode))
+    {
+    }
 
     StyleString(std::string&& string, std::string& bytecode)
-    : _string(std::move(string)), _bytecode(bytecode)
-    { }
+        : _string(std::move(string))
+        , _bytecode(bytecode)
+    {
+    }
 
 public:
     StyleString() = default;
 
     StyleString(const std::string& string)
-    : _string(string)
-    { }
+        : _string(string)
+    {
+    }
 
     StyleString(const StyleString&) = default;
     StyleString(StyleString&&) noexcept = default;
     StyleString& operator=(const StyleString&) = default;
     StyleString& operator=(StyleString&&) noexcept = default;
 
-    operator std::string&() {
-        return _string;
-    }
-    
-    operator const std::string&() const {
+    operator std::string&()
+    {
         return _string;
     }
 
-    size_t calc_height_slow() const {
+    operator const std::string&() const
+    {
+        return _string;
+    }
+
+    size_t calc_height_slow() const
+    {
         return std::count(_string.begin(), _string.end(), '\n') + 1;
     }
 
@@ -163,31 +187,32 @@ public:
 
     size_t empty() const { return _string.empty(); }
 
-    bool style() const {
+    bool style() const
+    {
         return not _bytecode.empty();
     }
 
-    static
-    StyleString layout(StyleString&& string, size_t width, size_t gap, int decoration, LayoutAlign align) {
+    static StyleString layout(StyleString&& string, size_t width, size_t gap, int decoration, LayoutAlign align)
+    {
         return layout(string, width, gap, decoration, align);
     }
 
-    static
-    StyleString layout(std::string&& string, size_t width, size_t gap, int decoration, LayoutAlign align) {
+    static StyleString layout(std::string&& string, size_t width, size_t gap, int decoration, LayoutAlign align)
+    {
         return layout(string, width, gap, decoration, align);
     }
 
-    static
-    StyleString layout(StyleString& string, size_t width, size_t gap, int decoration, LayoutAlign align);
+    static StyleString layout(StyleString& string, size_t width, size_t gap, int decoration, LayoutAlign align);
 
-    const std::string& string() const {
+    const std::string& string() const
+    {
         return _string;
     }
 };
 
 class StyleStringBuilder {
-    std::ostringstream _buffer{};
-    std::string _bytecode{};
+    std::ostringstream _buffer {};
+    std::string _bytecode {};
 
 public:
     StyleStringBuilder() { }
@@ -196,16 +221,18 @@ public:
     StyleStringBuilder& operator=(const StyleStringBuilder&) = delete;
     StyleStringBuilder& operator=(StyleStringBuilder&&) noexcept = default;
 
-    template<typename T>
-    StyleStringBuilder& operator <<(T&& value) {
-        stream([&](std::ostringstream& stream){
+    template <typename T>
+    StyleStringBuilder& operator<<(T&& value)
+    {
+        stream([&](std::ostringstream& stream) {
             _buffer << std::forward<T>(value);
         });
         return *this;
     }
 
-    template<typename T>
-    void stream(T&& callback) {
+    template <typename T>
+    void stream(T&& callback)
+    {
         auto pos = _buffer.tellp();
         callback(_buffer);
         auto end = _buffer.tellp();
@@ -227,51 +254,58 @@ public:
             _bytecode.append(reinterpret_cast<char*>(&buf), 8);
         }
     }
-    
-    StyleStringBuilder& operator <<(::tui::style::SetStyle&& value) {
+
+    StyleStringBuilder& operator<<(::tui::style::SetStyle&& value)
+    {
         auto style = value._style;
         _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrSet));
         _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
         return *this;
     }
 
-    StyleStringBuilder& operator <<(::tui::style::SetColor&& value) {
+    StyleStringBuilder& operator<<(::tui::style::SetColor&& value)
+    {
         auto style = value._style;
         _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrOn));
         _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
         return *this;
     }
 
-    StyleStringBuilder& operator <<(::tui::style::EnableStyle&& value) {
+    StyleStringBuilder& operator<<(::tui::style::EnableStyle&& value)
+    {
         auto style = value._style;
         _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrOn));
         _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
         return *this;
     }
 
-    StyleStringBuilder& operator <<(::tui::style::DisableStyle&& value) {
+    StyleStringBuilder& operator<<(::tui::style::DisableStyle&& value)
+    {
         auto style = value._style;
         _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrOff));
         _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
         return *this;
     }
 
-    StyleStringBuilder& operator <<(::tui::style::ResetStyle&& value) {
+    StyleStringBuilder& operator<<(::tui::style::ResetStyle&& value)
+    {
         auto style = 0;
         _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrSet));
         _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
         return *this;
     }
 
-    StyleString str() {
-        return StyleString{ _buffer.str(), _bytecode };
+    StyleString str()
+    {
+        return StyleString { _buffer.str(), _bytecode };
     }
 
-    StyleString release() {
+    StyleString release()
+    {
         return { _buffer.str(), std::move(_bytecode) };
     }
 
-    static void print_style_string(WINDOW* win, const StyleString& string, bool reverse=false);
+    static void print_style_string(WINDOW* win, const StyleString& string, bool reverse = false);
 };
 
 class TUI;
@@ -294,17 +328,19 @@ struct ContentProvider {
 
     virtual void tui_notify_changed();
 
-    uint32_t flags() const {
+    uint32_t flags() const
+    {
         return _flags;
     }
 
-    void set_flags(uint32_t flags) {
+    void set_flags(uint32_t flags)
+    {
         _flags = flags;
     }
 
 private:
     friend class TUI;
-    TUI* _tui{nullptr};
+    TUI* _tui { nullptr };
     uint32_t _flags;
 };
 
@@ -326,7 +362,8 @@ public:
         _buffer.reserve(256);
     }
 
-    void reset() {
+    void reset()
+    {
         _buffer.clear();
         _cursor = 0;
         _height = 1;
@@ -391,10 +428,10 @@ public:
 
 namespace detail {
 
-struct ItemCache {
-    StyleString _conetnt;
-    size_t _height;
-};
+    struct ItemCache {
+        StyleString _conetnt;
+        size_t _height;
+    };
 
 } // namespace detail
 
@@ -417,11 +454,11 @@ class TUI {
     size_t _title_height { 1 };
     StyleString _title_string {};
 
-    size_t _content_scroll_lines{0};
-    size_t _content_cached_index{0};
-    size_t _content_cached_lines{0};
-    size_t _content_selected_index{0};
-    std::vector<detail::ItemCache> _content_cached_items{};
+    size_t _content_scroll_lines { 0 };
+    size_t _content_cached_index { 0 };
+    size_t _content_cached_lines { 0 };
+    size_t _content_selected_index { 0 };
+    std::vector<detail::ItemCache> _content_cached_items {};
 
     std::shared_ptr<CommandHandler> _handler {};
     std::shared_ptr<ContentProvider> _provider {};
@@ -432,7 +469,8 @@ public:
 
     Editor& editor() { return _editor; }
 
-    std::shared_ptr<ContentProvider> current_content_provider() {
+    std::shared_ptr<ContentProvider> current_content_provider()
+    {
         return _provider;
     }
 
@@ -462,7 +500,7 @@ public:
             int width, height;
             getmaxyx(_win_canvas, height, width);
             _provider->tui_show(width);
-            
+
             getmaxyx(_win_title, height, width);
             _title_string = _provider->tui_title(width);
 
@@ -489,7 +527,7 @@ private:
     friend void ContentProvider::tui_notify_changed();
 };
 
-template <typename T, typename C=std::vector<T>>
+template <typename T, typename C = std::vector<T>>
 class VisibleContainer : protected C, public ContentProvider {
     C _vector {};
 
@@ -497,12 +535,12 @@ public:
     typedef typename C::iterator iterator;
     typedef typename C::const_iterator const_iterator;
 
-    using C::C;
-    using C::begin;
-    using C::end;
-    using C::size;
-    using C::reserve;
     using C::at;
+    using C::begin;
+    using C::C;
+    using C::end;
+    using C::reserve;
+    using C::size;
 
     void clear()
     {
@@ -532,14 +570,15 @@ public:
         tui_notify_changed();
     }
 
-    size_t tui_count() override {
+    size_t tui_count() override
+    {
         return size();
     }
 };
 
 class HistoryView : public VisibleContainer<std::string> {
-    ssize_t _index{-1};
-    std::string _saved_buffer{};
+    ssize_t _index { -1 };
+    std::string _saved_buffer {};
 
 public:
     HistoryView();
@@ -553,9 +592,9 @@ public:
     StyleString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString{};
+            return StyleString {};
         }
-        return StyleString{this->at(index)};
+        return StyleString { this->at(index) };
     }
 };
 
@@ -565,15 +604,17 @@ class MessageStream {
     friend class MessageView;
 
     std::shared_ptr<MessageView> _view;
-    StyleStringBuilder _builder{};
+    StyleStringBuilder _builder {};
 
     MessageStream(std::shared_ptr<MessageView>& view)
-    : _view(view)
-    { }
+        : _view(view)
+    {
+    }
 
     MessageStream(std::shared_ptr<MessageView>&& view)
-    : _view(std::move(view))
-    { }
+        : _view(std::move(view))
+    {
+    }
 
 public:
     ~MessageStream();
@@ -583,18 +624,21 @@ public:
     MessageStream& operator=(const MessageStream&) = delete;
     MessageStream& operator=(MessageStream&&) noexcept = default;
 
-    template<typename T>
-    MessageStream operator <<(T&& value) && {
+    template <typename T>
+    MessageStream operator<<(T&& value) &&
+    {
         _builder << std::forward<T>(value);
         return std::move(*this);
     }
 };
 
-class MessageView : public VisibleContainer<StyleString>, public std::enable_shared_from_this<MessageView>
-{
+class MessageView : public VisibleContainer<StyleString>, public std::enable_shared_from_this<MessageView> {
     size_t _message_max;
+
 public:
-    MessageView(size_t message_max = 1000):_message_max(message_max) {
+    MessageView(size_t message_max = 1000)
+        : _message_max(message_max)
+    {
         set_flags(ContentProviderFlagAutoScrollTail);
     }
 
@@ -602,16 +646,17 @@ public:
     {
         return StyleString::layout("Message", width, 1, '=', LayoutAlign::Center);
     }
-    
+
     StyleString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString{};
+            return StyleString {};
         }
-        return StyleString{this->at(index)};
+        return StyleString { this->at(index) };
     }
 
-    MessageStream stream() {
+    MessageStream stream()
+    {
         if (this->size() > _message_max) {
             auto half = _message_max / 2;
             auto iter = begin();
@@ -619,12 +664,12 @@ public:
                 iter = erase(iter);
             }
         }
-        return {shared_from_this()};
+        return { shared_from_this() };
     }
 };
 
-inline
-MessageStream::~MessageStream() {
+inline MessageStream::~MessageStream()
+{
     if (_view) {
         _view->emplace_back(_builder.str());
         _view.reset();

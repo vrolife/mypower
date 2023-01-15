@@ -23,16 +23,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 namespace po = boost::program_options;
 using namespace mypower;
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-    pid_t target_pid{-1};
-    uintptr_t address{0};
-    uintptr_t mask{0};
-    uintptr_t target_start{0};
-    uintptr_t target_end{0};
-    size_t max{16};
-    size_t step{16};
-    size_t cache_size{0};
+    pid_t target_pid { -1 };
+    uintptr_t address { 0 };
+    uintptr_t mask { 0 };
+    uintptr_t target_start { 0 };
+    uintptr_t target_end { 0 };
+    size_t max { 16 };
+    size_t step { 16 };
+    size_t cache_size { 0 };
 
     try {
         po::options_description desc("Allowed options");
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
         if (vm.count("mask")) {
             mask = vm["mask"].as<uintptr_t>();
         }
-        
+
         if (vm.count("max")) {
             max = vm["max"].as<size_t>();
         }
@@ -109,9 +109,9 @@ int main(int argc, char *argv[])
 
     auto process = std::make_shared<Process>(target_pid);
 
-    Session session{process, cache_size};
+    Session session { process, cache_size };
 
-    session.scan(ScanComparator<ComparatorMask<uintptr_t>> {{address, mask}, step});
+    session.scan(ScanComparator<ComparatorMask<uintptr_t>> { { address, mask }, step });
 
     return 0;
 }

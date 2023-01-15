@@ -27,7 +27,9 @@ class Session : public Command {
     po::positional_options_description _posiginal {};
 
 public:
-    Session(Application& app) : Command(app) {
+    Session(Application& app)
+        : Command(app)
+    {
         _options.add_options()("help", "show help message");
         _options.add_options()("session,s", po::value<std::string>(), "session index/name");
         _options.add_options()("name,n", po::value<std::string>(), "set session name");
@@ -36,11 +38,13 @@ public:
         _posiginal.add("session", 1);
     }
 
-    bool match(const std::string& command) override {
+    bool match(const std::string& command) override
+    {
         return command == "session";
     }
 
-    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+    void run(const std::string& command, const std::vector<std::string>& arguments) override
+    {
         PROGRAM_OPTIONS();
 
         if (_app._session_views.empty()) {
@@ -96,7 +100,7 @@ public:
             if (not _app._session_views.empty()) {
                 auto iter = _app._session_views.begin() + index;
                 _app._session_views.erase(iter);
-                
+
                 if (_app._session_views.empty()) {
                     _app._current_session_view.reset();
                 } else {
@@ -118,6 +122,6 @@ public:
     }
 };
 
-static RegisterCommand<Session> _Session{};
+static RegisterCommand<Session> _Session {};
 
 } // namespace mypower

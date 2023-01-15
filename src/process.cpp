@@ -14,13 +14,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#include <sys/uio.h>
+#include <fcntl.h>
+#include <limits.h>
 #include <sys/signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <limits.h>
 
 #include <algorithm>
 
@@ -130,9 +130,10 @@ bool Process::resume(bool same_user)
     return ::kill(_pid, SIGCONT) == 0;
 }
 
-std::string read_process_file(pid_t pid, const char* filename, size_t buffer_size = PATH_MAX) {
+std::string read_process_file(pid_t pid, const char* filename, size_t buffer_size = PATH_MAX)
+{
     auto cmdline = std::filesystem::path("/proc") / std::to_string(pid) / filename;
-    std::string buffer{};
+    std::string buffer {};
     buffer.resize(buffer_size);
 
     int fd = ::open(cmdline.c_str(), O_RDONLY);
@@ -163,7 +164,8 @@ std::string read_process_comm(pid_t pid)
     return buffer;
 }
 
-std::string read_process_cmdline(pid_t pid) {
+std::string read_process_cmdline(pid_t pid)
+{
     auto buffer = read_process_file(pid, "cmdline");
 
     for (auto& ch : buffer) {

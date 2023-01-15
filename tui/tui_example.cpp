@@ -30,12 +30,13 @@ using namespace std::string_literals;
 
 class MainMenu : public VisibleContainer<std::string> {
 public:
-    MainMenu() {
+    MainMenu()
+    {
         this->emplace_back("list");
         this->emplace_back("history");
         this->emplace_back("exit");
     }
-    
+
     StyleString tui_title(size_t width) override
     {
         return StyleString::layout("Main menu", width, 1, '=', LayoutAlign::Center);
@@ -44,17 +45,18 @@ public:
     StyleString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString{};
+            return StyleString {};
         }
-        return StyleString{this->at(index)};
+        return StyleString { this->at(index) };
     }
 };
 
 class LongList : public VisibleContainer<std::string> {
 public:
-    LongList() {
+    LongList()
+    {
         for (auto i = 0; i < 100; ++i) {
-            if (i%2) {
+            if (i % 2) {
                 this->emplace_back("Item "s + std::to_string(i));
             } else {
                 this->emplace_back("Item "s + std::to_string(i) + "\n    Item "s + std::to_string(i) + " Second Line"s);
@@ -70,9 +72,9 @@ public:
     StyleString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString{};
+            return StyleString {};
         }
-        return StyleString{this->at(index)};
+        return StyleString { this->at(index) };
     }
 };
 
@@ -83,7 +85,7 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
     std::shared_ptr<MainMenu> _main_menu;
     std::shared_ptr<LongList> _long_list;
 
-    std::stack<std::shared_ptr<ContentProvider>> _view_stack{};
+    std::stack<std::shared_ptr<ContentProvider>> _view_stack {};
 
 public:
     App(TUI& tui)
@@ -97,20 +99,23 @@ public:
         push(_message_view);
     }
 
-    StyleString tui_prompt(size_t width) override {
+    StyleString tui_prompt(size_t width) override
+    {
         using namespace ::tui::style;
-        StyleStringBuilder builder{};
+        StyleStringBuilder builder {};
         builder << SetColor(ColorPrompt) << "Command" << ResetStyle() << ": ";
         return builder.str();
     }
 
-    template<typename T>
-    void push(T&& view) {
+    template <typename T>
+    void push(T&& view)
+    {
         _view_stack.push(std::dynamic_pointer_cast<ContentProvider>(view));
         _tui.show(_view_stack.top());
     }
 
-    void pop() {
+    void pop()
+    {
         if (_view_stack.size() > 1) {
             _view_stack.pop();
         }
@@ -139,7 +144,7 @@ public:
 
 int main(int argc, char* argv[])
 {
-    TUI tui {TUIFlagColor};
+    TUI tui { TUIFlagColor };
     tui.attach(std::make_shared<App>(tui));
     tui.run();
     return 0;

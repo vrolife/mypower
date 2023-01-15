@@ -28,17 +28,21 @@ class Attach : public Command {
     po::positional_options_description _posiginal {};
 
 public:
-    Attach(Application& app) : Command(app) {
+    Attach(Application& app)
+        : Command(app)
+    {
         _options.add_options()("help", "show help message");
         _options.add_options()("pid,p", po::value<pid_t>(), "target process pid");
         _posiginal.add("pid", 1);
     }
 
-    bool match(const std::string& command) override {
+    bool match(const std::string& command) override
+    {
         return command == "selfattach" or command == "attach";
     }
 
-    void attach(pid_t pid) {
+    void attach(pid_t pid)
+    {
         message() << "Attach process " << pid;
         show();
 
@@ -46,7 +50,8 @@ public:
         _app._process = std::make_shared<Process>(pid);
     }
 
-    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+    void run(const std::string& command, const std::vector<std::string>& arguments) override
+    {
         if (command == "selfattach") {
             attach(::getpid());
             return;
@@ -69,17 +74,17 @@ public:
         }
 
         if (pid == -1) {
-            message() 
+            message()
                 << "Usage: attach [options] pid\n"
                 << _options;
             show();
             return;
         }
-        
+
         attach(pid);
     }
 };
 
-static RegisterCommand<Attach> _Attach{};
+static RegisterCommand<Attach> _Attach {};
 
 } // namespace mypower

@@ -18,8 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define __vmmap_hpp__
 
 #include <filesystem>
-#include <string>
 #include <sstream>
+#include <string>
 #include <vector>
 
 namespace mypower {

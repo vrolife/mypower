@@ -27,8 +27,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <boost/program_options.hpp>
 
 #include "dsl.hpp"
-#include "tui.hpp"
 #include "mypower.hpp"
+#include "tui.hpp"
 
 namespace po = boost::program_options;
 
@@ -37,16 +37,16 @@ using namespace tui;
 
 namespace mypower {
 
-std::vector<CommandInitializer> _command_list{};
+std::vector<CommandInitializer> _command_list {};
 
-void Application::register_command(CommandInitializer init) 
+void Application::register_command(CommandInitializer init)
 {
     _command_list.emplace_back(std::move(init));
 }
 
 class App : public CommandHandler, public std::enable_shared_from_this<App>, public Application {
 
-    std::vector<std::unique_ptr<Command>> _commands{};
+    std::vector<std::unique_ptr<Command>> _commands {};
 
     std::shared_ptr<HistoryView> _history_view;
 
@@ -205,8 +205,7 @@ public:
 
 } // namespace mypower
 
-__attribute__((weak))
-int main(int argc, char* argv[])
+__attribute__((weak)) int main(int argc, char* argv[])
 {
     pid_t target_pid = -1;
 

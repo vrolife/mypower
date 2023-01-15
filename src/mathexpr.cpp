@@ -28,10 +28,10 @@ struct ExprContext { };
 
 std::unique_ptr<ASTNode> parse(const std::string& str)
 {
-    std::istringstream iss{str};
-    Tokenizer tokenizer{"<commandline>", iss, std::cout};
-    Parser<ExprContext> parser{};
-    ExprContext context{};
+    std::istringstream iss { str };
+    Tokenizer tokenizer { "<commandline>", iss, std::cout };
+    Parser<ExprContext> parser {};
+    ExprContext context {};
     return parser.parse(context, tokenizer);
 }
 

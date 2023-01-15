@@ -25,7 +25,8 @@ SOFTWARE.
 
 namespace tui {
 
-StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, int decoration, LayoutAlign align) {
+StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, int decoration, LayoutAlign align)
+{
     auto new_string = string;
     if (new_string._string.size() >= width) {
         return new_string;
@@ -50,96 +51,97 @@ StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, i
         }
     }
     switch (align) {
-        case LayoutAlign::Start: {
-            auto space = width - new_string._string.size();
-            if (space > 0) {
-                auto repeat = static_cast<uint16_t>(std::min(space, gap));
-                space -= repeat;
-                new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                new_string._bytecode.push_back(' ');
-                new_string._bytecode.append(reinterpret_cast<char*>(&repeat), 2);
-            }
-            if (space > 0) {
-                auto repeat = static_cast<uint16_t>(space);
-                new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                new_string._bytecode.push_back(decoration);
-                new_string._bytecode.append(reinterpret_cast<char*>(&repeat), 2);
-            }
-            break;
+    case LayoutAlign::Start: {
+        auto space = width - new_string._string.size();
+        if (space > 0) {
+            auto repeat = static_cast<uint16_t>(std::min(space, gap));
+            space -= repeat;
+            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            new_string._bytecode.push_back(' ');
+            new_string._bytecode.append(reinterpret_cast<char*>(&repeat), 2);
         }
-        case LayoutAlign::Center: {
-            auto space = width - new_string._string.size();
-            std::string bc;
-            bc.reserve(new_string._bytecode.size() + 16);
-            if (space <= (gap * 2)) { // no decoration
-                auto repeat = static_cast<uint16_t>(gap / 2);
-                
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(' ');
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-                
-                bc.append(new_string._bytecode.begin(), new_string._bytecode.end());
-
-                repeat = space - repeat;
-
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(' ');
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-            } else {
-                auto repeat = static_cast<uint16_t>(space / 2 - gap);
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(decoration);
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-                space -= repeat;
-
-                repeat = gap;
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(' ');
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-                space -= repeat;
-                
-                bc.append(new_string._bytecode.begin(), new_string._bytecode.end());
-                
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(' ');
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-                space -= repeat;
-
-                repeat = static_cast<uint16_t>(space);
-
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(decoration);
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-            }
-            new_string._bytecode = bc;
-            break;
+        if (space > 0) {
+            auto repeat = static_cast<uint16_t>(space);
+            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            new_string._bytecode.push_back(decoration);
+            new_string._bytecode.append(reinterpret_cast<char*>(&repeat), 2);
         }
-        case LayoutAlign::End: {
-            auto space = width - new_string._string.size();
-            std::string bc;
-            bc.reserve(new_string._bytecode.size() + 8);
-            if (space > 0) {
-                auto repeat = static_cast<uint16_t>(space - gap);
-                space -= repeat;
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(decoration);
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-            }
-            if (space > 0) {
-                auto repeat = static_cast<uint16_t>(space);
-                bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
-                bc.push_back(' ');
-                bc.append(reinterpret_cast<char*>(&repeat), 2);
-            }
+        break;
+    }
+    case LayoutAlign::Center: {
+        auto space = width - new_string._string.size();
+        std::string bc;
+        bc.reserve(new_string._bytecode.size() + 16);
+        if (space <= (gap * 2)) { // no decoration
+            auto repeat = static_cast<uint16_t>(gap / 2);
+
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(' ');
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
+
             bc.append(new_string._bytecode.begin(), new_string._bytecode.end());
-            new_string._bytecode = bc;
-            break;
+
+            repeat = space - repeat;
+
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(' ');
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
+        } else {
+            auto repeat = static_cast<uint16_t>(space / 2 - gap);
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(decoration);
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
+            space -= repeat;
+
+            repeat = gap;
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(' ');
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
+            space -= repeat;
+
+            bc.append(new_string._bytecode.begin(), new_string._bytecode.end());
+
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(' ');
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
+            space -= repeat;
+
+            repeat = static_cast<uint16_t>(space);
+
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(decoration);
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
         }
+        new_string._bytecode = bc;
+        break;
+    }
+    case LayoutAlign::End: {
+        auto space = width - new_string._string.size();
+        std::string bc;
+        bc.reserve(new_string._bytecode.size() + 8);
+        if (space > 0) {
+            auto repeat = static_cast<uint16_t>(space - gap);
+            space -= repeat;
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(decoration);
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
+        }
+        if (space > 0) {
+            auto repeat = static_cast<uint16_t>(space);
+            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(' ');
+            bc.append(reinterpret_cast<char*>(&repeat), 2);
+        }
+        bc.append(new_string._bytecode.begin(), new_string._bytecode.end());
+        new_string._bytecode = bc;
+        break;
+    }
     }
     return new_string;
 }
 
-void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& string, bool reverse) {
+void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& string, bool reverse)
+{
     if (string._bytecode.empty()) {
         if (reverse) {
             wattron(win, A_REVERSE);
@@ -158,94 +160,94 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
         wattrset(win, default_attrs);
 
         while (code < endc) {
-            switch(static_cast<StyleString::Bytecode>(code[0])) {
-                case StyleString::Bytecode::BytecodeNop:
-                    str += 1;
-                    code += 1;
-                    break;
-                case StyleString::Bytecode::BytecodeString8: {
-                    auto size = code[1];
-                    auto space = size;
-                    waddnstr(win, str, space);
-                    str += size;
-                    code += 2;
-                    break;
+            switch (static_cast<StyleString::Bytecode>(code[0])) {
+            case StyleString::Bytecode::BytecodeNop:
+                str += 1;
+                code += 1;
+                break;
+            case StyleString::Bytecode::BytecodeString8: {
+                auto size = code[1];
+                auto space = size;
+                waddnstr(win, str, space);
+                str += size;
+                code += 2;
+                break;
+            }
+            case StyleString::Bytecode::BytecodeString16: {
+                uint16_t size = 0;
+                memcpy(&size, &code[1], 2);
+                auto space = size;
+                waddnstr(win, str, space);
+                str += size;
+                code += 3;
+                break;
+            }
+            case StyleString::Bytecode::BytecodeString32: {
+                uint32_t size = 0;
+                memcpy(&size, &code[1], 4);
+                auto space = size;
+                waddnstr(win, str, space);
+                str += size;
+                code += 5;
+                break;
+            }
+            case StyleString::Bytecode::BytecodeString64: {
+                uint64_t size = 0;
+                memcpy(&size, &code[1], 8);
+                auto space = size;
+                waddnstr(win, str, space);
+                str += size;
+                code += 7;
+                break;
+            }
+            case StyleString::BytecodeAttrOn: {
+                NCURSES_CH_T attrs = 0;
+                memcpy(&attrs, &code[1], sizeof(attrs));
+                if (reverse && (attrs & A_REVERSE)) {
+                    wattroff(win, A_REVERSE);
+                    attrs &= ~A_REVERSE;
                 }
-                case StyleString::Bytecode::BytecodeString16: {
-                    uint16_t size = 0;
-                    memcpy(&size, &code[1], 2);
-                    auto space = size;
-                    waddnstr(win, str, space);
-                    str += size;
-                    code += 3;
-                    break;
+                wattron(win, attrs);
+                code += (1 + sizeof(attrs));
+                break;
+            }
+            case StyleString::BytecodeAttrOff: {
+                NCURSES_CH_T attrs = 0;
+                memcpy(&attrs, &code[1], sizeof(attrs));
+                if (reverse && (attrs & A_REVERSE)) {
+                    wattron(win, A_REVERSE);
+                    attrs &= ~A_REVERSE;
                 }
-                case StyleString::Bytecode::BytecodeString32: {
-                    uint32_t size = 0;
-                    memcpy(&size, &code[1], 4);
-                    auto space = size;
-                    waddnstr(win, str, space);
-                    str += size;
-                    code += 5;
-                    break;
+                wattroff(win, attrs);
+                code += (1 + sizeof(attrs));
+                break;
+            }
+            case StyleString::BytecodeAttrSet: {
+                NCURSES_CH_T attrs = 0;
+                memcpy(&attrs, &code[1], sizeof(attrs));
+                if (reverse) {
+                    attrs = (attrs & ~A_REVERSE) | (~attrs & A_REVERSE);
                 }
-                case StyleString::Bytecode::BytecodeString64: {
-                    uint64_t size = 0;
-                    memcpy(&size, &code[1], 8);
-                    auto space = size;
-                    waddnstr(win, str, space);
-                    str += size;
-                    code += 7;
-                    break;
+                wattrset(win, attrs);
+                code += (1 + sizeof(attrs));
+                break;
+            }
+            case StyleString::BytecodeAttrClear: {
+                wattrset(win, default_attrs);
+                code += 1;
+                break;
+            }
+            case StyleString::BytecodeRepeat16: {
+                auto ch = code[1];
+                uint16_t count = 0;
+                memcpy(&count, &code[2], sizeof(count));
+                while (count) {
+                    waddch(win, ch);
+                    count -= 1;
                 }
-                case StyleString::BytecodeAttrOn: {
-                    NCURSES_CH_T attrs = 0;
-                    memcpy(&attrs, &code[1], sizeof(attrs));
-                    if (reverse && (attrs & A_REVERSE)) {
-                        wattroff(win, A_REVERSE);
-                        attrs &= ~A_REVERSE;
-                    }
-                    wattron(win, attrs);
-                    code += (1 + sizeof(attrs));
-                    break;
-                }
-                case StyleString::BytecodeAttrOff: {
-                    NCURSES_CH_T attrs = 0;
-                    memcpy(&attrs, &code[1], sizeof(attrs));
-                    if (reverse && (attrs & A_REVERSE)) {
-                        wattron(win, A_REVERSE);
-                        attrs &= ~A_REVERSE;
-                    }
-                    wattroff(win, attrs);
-                    code += (1 + sizeof(attrs));
-                    break;
-                }
-                case StyleString::BytecodeAttrSet: {
-                    NCURSES_CH_T attrs = 0;
-                    memcpy(&attrs, &code[1], sizeof(attrs));
-                    if (reverse) {
-                        attrs = (attrs & ~A_REVERSE) | (~attrs & A_REVERSE);
-                    }
-                    wattrset(win, attrs);
-                    code += (1 + sizeof(attrs));
-                    break;
-                }
-                case StyleString::BytecodeAttrClear: {
-                    wattrset(win, default_attrs);
-                    code += 1;
-                    break;
-                }
-                case StyleString::BytecodeRepeat16: {
-                    auto ch = code[1];
-                    uint16_t count = 0;
-                    memcpy(&count, &code[2], sizeof(count));
-                    while(count) {
-                        waddch(win, ch);
-                        count -= 1;
-                    }
-                    code += 4;
-                    break;
-                }
+                code += 4;
+                break;
+            }
             }
         }
 
@@ -253,7 +255,8 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
     }
 }
 
-void ContentProvider::tui_notify_changed() {
+void ContentProvider::tui_notify_changed()
+{
     if (_tui) {
         _tui->invalidate();
     }
@@ -315,7 +318,8 @@ TUI::~TUI()
     endwin();
 }
 
-void TUI::update_title() {
+void TUI::update_title()
+{
     if (_provider) {
         int width, height;
         getmaxyx(_win_canvas, height, width);
@@ -381,67 +385,68 @@ int TUI::run()
     return 0;
 }
 
-void TUI::list_mode_key(int key) {
+void TUI::list_mode_key(int key)
+{
     int screen_height, screen_width, offset = 0;
     getmaxyx(stdscr, screen_height, screen_width);
     const auto content_height = screen_height - _title_height - _editor.height();
-    
-    switch(key) {
-        case KEY_UP: {
-            if (_content_selected_index == 0) {
-                return;
-            }
-            _content_selected_index -= 1;
-            if (_content_selected_index < _content_cached_index) {
-                _content_cached_index = _content_selected_index;
-                _content_scroll_lines = 0;
-                invalidate();
-            } else {
-                invalidate();
-                size_t lines_above = 0;
-                for (size_t idx = 0; idx < _content_cached_items.size() and (idx + _content_cached_index) < _content_selected_index; ++idx) {
-                    lines_above += _content_cached_items.at(idx)._height;
-                }
-                if (lines_above < _content_scroll_lines) {
-                    _content_scroll_lines = lines_above;
-                }
-            }
-            break;
+
+    switch (key) {
+    case KEY_UP: {
+        if (_content_selected_index == 0) {
+            return;
         }
-        case KEY_DOWN: {
-            auto count = _provider->tui_count();
-            if (_content_selected_index >= (count - 1)) {
-                return;
+        _content_selected_index -= 1;
+        if (_content_selected_index < _content_cached_index) {
+            _content_cached_index = _content_selected_index;
+            _content_scroll_lines = 0;
+            invalidate();
+        } else {
+            invalidate();
+            size_t lines_above = 0;
+            for (size_t idx = 0; idx < _content_cached_items.size() and (idx + _content_cached_index) < _content_selected_index; ++idx) {
+                lines_above += _content_cached_items.at(idx)._height;
             }
-            _content_selected_index += 1;
-            if (_content_selected_index >= (_content_cached_index + _content_cached_items.size())) {
-                _content_cached_index += 1;
-                invalidate();
-                _content_scroll_lines = _content_cached_lines - content_height;
-            } else {
-                invalidate();
-                size_t lines_above = 0;
-                for (size_t idx = 0; idx < _content_cached_items.size() and (idx + _content_cached_index) <= _content_selected_index; ++idx) {
-                    lines_above += _content_cached_items.at(idx)._height;
-                }
-                if (lines_above > content_height) {
-                    _content_scroll_lines = lines_above - content_height;
-                }
+            if (lines_above < _content_scroll_lines) {
+                _content_scroll_lines = lines_above;
             }
-            break;
         }
-        case KEY_ENTER:
-        case '\n': {
-            auto command = _provider->tui_select(_content_selected_index);
-            if (not command.empty()) {                    
-                if (_handler && _provider) {
-                    _handler->tui_run(command);
-                }
-                _editing = true;
-                invalidate();
-            }
-            break;
+        break;
+    }
+    case KEY_DOWN: {
+        auto count = _provider->tui_count();
+        if (_content_selected_index >= (count - 1)) {
+            return;
         }
+        _content_selected_index += 1;
+        if (_content_selected_index >= (_content_cached_index + _content_cached_items.size())) {
+            _content_cached_index += 1;
+            invalidate();
+            _content_scroll_lines = _content_cached_lines - content_height;
+        } else {
+            invalidate();
+            size_t lines_above = 0;
+            for (size_t idx = 0; idx < _content_cached_items.size() and (idx + _content_cached_index) <= _content_selected_index; ++idx) {
+                lines_above += _content_cached_items.at(idx)._height;
+            }
+            if (lines_above > content_height) {
+                _content_scroll_lines = lines_above - content_height;
+            }
+        }
+        break;
+    }
+    case KEY_ENTER:
+    case '\n': {
+        auto command = _provider->tui_select(_content_selected_index);
+        if (not command.empty()) {
+            if (_handler && _provider) {
+                _handler->tui_run(command);
+            }
+            _editing = true;
+            invalidate();
+        }
+        break;
+    }
     }
 }
 void TUI::resize()
@@ -504,7 +509,8 @@ void TUI::draw()
     doupdate();
 }
 
-void TUI::invalidate() {
+void TUI::invalidate()
+{
     size_t screen_width, screen_height;
     getmaxyx(stdscr, screen_height, screen_width);
 
@@ -526,7 +532,7 @@ void TUI::invalidate() {
     }
 
     for (auto idx = 0; idx < std::min(content_height, count); ++idx) {
-        detail::ItemCache item{};
+        detail::ItemCache item {};
         item._conetnt = _provider->tui_item(idx + _content_cached_index, screen_width);
         item._height = item._conetnt.calc_height_slow();
         _content_cached_lines += item._height;
@@ -541,18 +547,19 @@ void TUI::invalidate() {
     wresize(_win_canvas, _content_cached_lines, screen_width);
     werase(_win_canvas);
 
-    int y =  0;
+    int y = 0;
     int idx = 0;
     for (auto& cache : _content_cached_items) {
         wmove(_win_canvas, y, 0);
-        StyleStringBuilder::print_style_string(_win_canvas, cache._conetnt, 
+        StyleStringBuilder::print_style_string(_win_canvas, cache._conetnt,
             ((idx + _content_cached_index) == _content_selected_index) and not _editing);
         idx += 1;
         y += cache._height;
     }
 }
 
-HistoryView::HistoryView() {
+HistoryView::HistoryView()
+{
     set_flags(ContentProviderFlagAutoScrollTail);
 }
 
@@ -561,35 +568,37 @@ StyleString HistoryView::tui_title(size_t width)
     return StyleString::layout("History", width, 1, '=', LayoutAlign::Center);
 }
 
-void HistoryView::history_key(int key, Editor& editor) {
-    switch(key) {
-        case KEY_UP:
-            if (empty()) {
-                break;
-            }
-            if (_index == -1) {
-                _saved_buffer = editor.buffer();
-                _index = size() - 1;
-            } else if (_index > 0) {
-                _index -= 1;
-            }
-            editor.update(at(_index), SIZE_MAX);
+void HistoryView::history_key(int key, Editor& editor)
+{
+    switch (key) {
+    case KEY_UP:
+        if (empty()) {
             break;
-        case KEY_DOWN:
-            if (_index != -1) {
-                if (_index < (size() - 1)) {
-                    _index += 1;
-                    editor.update(at(_index), SIZE_MAX);
-                } else {
-                    _index = -1;
-                    editor.update(_saved_buffer, SIZE_MAX);
-                }
+        }
+        if (_index == -1) {
+            _saved_buffer = editor.buffer();
+            _index = size() - 1;
+        } else if (_index > 0) {
+            _index -= 1;
+        }
+        editor.update(at(_index), SIZE_MAX);
+        break;
+    case KEY_DOWN:
+        if (_index != -1) {
+            if (_index < (size() - 1)) {
+                _index += 1;
+                editor.update(at(_index), SIZE_MAX);
+            } else {
+                _index = -1;
+                editor.update(_saved_buffer, SIZE_MAX);
             }
-            break;
+        }
+        break;
     }
 }
 
-void HistoryView::tui_notify_changed() {
+void HistoryView::tui_notify_changed()
+{
     VisibleContainer<std::string>::tui_notify_changed();
     _index = -1;
 }

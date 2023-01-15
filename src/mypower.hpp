@@ -23,27 +23,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "process.hpp"
 #include "tui.hpp"
 
-#define PROGRAM_OPTIONS()                                                                       \
-    using namespace tui::style; \
-    po::variables_map opts {}; \
+#define PROGRAM_OPTIONS()                                                                     \
+    using namespace tui::style;                                                               \
+    po::variables_map opts {};                                                                \
     try {                                                                                     \
         po::store(po::command_line_parser(arguments)                                          \
-                      .options(_options)                                               \
-                      .positional(_posiginal)                                          \
+                      .options(_options)                                                      \
+                      .positional(_posiginal)                                                 \
                       .run(),                                                                 \
-            opts);                                                                              \
-        notify(opts);                                                                           \
+            opts);                                                                            \
+        notify(opts);                                                                         \
     } catch (const std::exception& exc) {                                                     \
-        message()                                                               \
+        message()                                                                             \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " " << exc.what();                                                             \
-        show();                                                                  \
+        show();                                                                               \
         return;                                                                               \
     } catch (...) {                                                                           \
-        message()                                                               \
+        message()                                                                             \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " Unknown error";                                                              \
-        show();                                                                  \
+        show();                                                                               \
         return;                                                                               \
     }
 
@@ -60,7 +60,10 @@ struct SessionView : public ContentProvider {
 
 struct Command {
     Application& _app;
-    Command(Application& app) : _app(app) { }
+    Command(Application& app)
+        : _app(app)
+    {
+    }
 
     virtual ~Command() = default;
     virtual void run(const std::string& command, const std::vector<std::string>& args) = 0;
@@ -88,13 +91,18 @@ struct Application {
     std::vector<std::shared_ptr<SessionView>> _session_views {};
     std::shared_ptr<SessionView> _current_session_view {};
 
-    Application(TUI& tui) : _tui(tui) { }
+    Application(TUI& tui)
+        : _tui(tui)
+    {
+    }
 
-    void show(std::shared_ptr<ContentProvider>&& view) {
+    void show(std::shared_ptr<ContentProvider>&& view)
+    {
         show(view);
     }
 
-    void show(std::shared_ptr<ContentProvider>& view) {
+    void show(std::shared_ptr<ContentProvider>& view)
+    {
         if (view == nullptr) {
             _tui.show(_message_view);
             return;
@@ -104,39 +112,37 @@ struct Application {
     }
 
 private:
-    template<typename T>
+    template <typename T>
     friend class RegisterCommand;
 
-    static
-    void register_command(CommandInitializer);
+    static void register_command(CommandInitializer);
 };
 
-inline
-MessageStream Command::message() {
+inline MessageStream Command::message()
+{
     return _app._message_view->stream();
 }
 
 template <typename T>
-inline
-void Command::show(T&& view)
+inline void Command::show(T&& view)
 {
     _app.show(std::dynamic_pointer_cast<ContentProvider>(view));
 }
-inline
-void Command::show()
+inline void Command::show()
 {
     _app.show(_app._message_view);
 }
 
-template<typename T>
+template <typename T>
 struct RegisterCommand {
-    RegisterCommand() {
+    RegisterCommand()
+    {
         Application::register_command(
-            &RegisterCommand<T>::register_command
-        );
+            &RegisterCommand<T>::register_command);
     }
 
-    static std::unique_ptr<Command> register_command(Application& app) {
+    static std::unique_ptr<Command> register_command(Application& app)
+    {
         return std::make_unique<T>(app);
     }
 };
