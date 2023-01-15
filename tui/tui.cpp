@@ -315,6 +315,14 @@ TUI::~TUI()
     endwin();
 }
 
+void TUI::update_title() {
+    if (_provider) {
+        int width, height;
+        getmaxyx(_win_canvas, height, width);
+        _title_string = _provider->tui_title(width);
+    }
+}
+
 int TUI::run()
 {
     int key;

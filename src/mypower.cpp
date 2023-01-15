@@ -27,8 +27,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <boost/program_options.hpp>
 
 #include "dsl.hpp"
-#include "processlist.hpp"
 #include "process.hpp"
+#include "processlist.hpp"
 #include "scan.hpp"
 #include "testview.hpp"
 #include "tui.hpp"
@@ -45,11 +45,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         _message_view->stream()                                                               \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " " << exc.what();                                                             \
+        show(_message_view);                                                                  \
         return;                                                                               \
     } catch (...) {                                                                           \
         _message_view->stream()                                                               \
             << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() \
             << " Unknown error";                                                              \
+        show(_message_view);                                                                  \
         return;                                                                               \
     }
 
@@ -69,7 +71,7 @@ class App : public CommandHandler, public std::enable_shared_from_this<App> {
     std::shared_ptr<Process> _process;
 
     std::vector<std::shared_ptr<SessionView>> _session_views {};
-    std::shared_ptr<SessionView> _current_session_view{};
+    std::shared_ptr<SessionView> _current_session_view {};
 
     po::options_description _options_attach { "Allowed options" };
     po::positional_options_description _posiginal_attach {};
@@ -128,7 +130,9 @@ public:
 
         _options_session.add_options()("help", "show help message");
         _options_session.add_options()("session,s", po::value<std::string>(), "session index/name");
+        _options_session.add_options()("name,n", po::value<std::string>(), "set session name");
         _options_session.add_options()("list,l", po::bool_switch()->default_value(false), "List exists sessions");
+        _options_session.add_options()("delete,d", po::bool_switch()->default_value(false), "delete session");
         _posiginal_session.add("session", 1);
 
         if (pid != -1) {
@@ -142,9 +146,9 @@ public:
     {
         using namespace ::tui::style;
         StyleStringBuilder builder {};
-        builder 
-            << SetColor(ColorPrompt) 
-            << (_current_session_view ? _current_session_view->session_name() : "") << ResetStyle() 
+        builder
+            << SetColor(ColorPrompt)
+            << (_current_session_view ? _current_session_view->session_name() : "") << ResetStyle()
             << "> ";
         return builder.str();
     }
@@ -152,30 +156,32 @@ public:
     template <typename T>
     void show(T&& view)
     {
-        if (not view) {
+        if (view == nullptr) {
+            _tui.show(_message_view);
             return;
         }
         _current_view = std::dynamic_pointer_cast<ContentProvider>(view);
         _tui.show(_current_view);
     }
 
-    void complete() {
+    void complete()
+    {
         auto& editor = _tui.editor();
         const auto& buffer = editor.buffer();
-        
+
         static std::vector<std::string> keyworks = {
-          "help",
-          "exit",
-          "msg", "mesg", "message",
-          "history",
-          "back",
-          "attach",
-          "selfattach",
-          "ps", "findps", "findpsex",
-          "test",
-          "scan",
-          "filter",
-          "update"
+            "help",
+            "exit",
+            "msg", "mesg", "message",
+            "history",
+            "back",
+            "attach",
+            "selfattach",
+            "ps", "findps", "findpsex",
+            "test",
+            "scan",
+            "filter",
+            "update"
         };
 
         if (buffer.empty()) {
@@ -338,7 +344,7 @@ public:
             }
 
             if (not _process) {
-                _message_view->stream() 
+                _message_view->stream()
                     << SetColor(ColorError)
                     << "Error:"
                     << ResetStyle()
@@ -354,11 +360,11 @@ public:
                     _current_session_view = view;
                     show(view);
                 }
-            } catch(const std::exception& e) {
+            } catch (const std::exception& e) {
                 _message_view->stream()
                     << SetColor(ColorError) << "Error:" << ResetStyle() << " "
                     << e.what();
-                show(_message_view);                    
+                show(_message_view);
                 return;
             }
 
@@ -397,7 +403,7 @@ public:
             }
 
             if (not _process) {
-                _message_view->stream() 
+                _message_view->stream()
                     << SetColor(ColorError)
                     << "Error:"
                     << ResetStyle()
@@ -408,7 +414,7 @@ public:
 
             try {
                 filter(_message_view, _current_session_view, config);
-            } catch(const std::exception& e) {
+            } catch (const std::exception& e) {
                 _message_view->stream()
                     << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() << " "
                     << e.what();
@@ -466,7 +472,7 @@ public:
             auto name_or_index = vm["session"].as<std::string>();
             try {
                 index = std::stoul(name_or_index);
-            } catch(...) {
+            } catch (...) {
                 index = 0;
                 for (auto& session : _session_views) {
                     if (session->session_name() == name_or_index) {
@@ -485,9 +491,44 @@ public:
                 show(_message_view);
                 return;
             }
-            
-            _current_session_view = _session_views.at(index);
-            show(_current_session_view);
+
+            if (vm["delete"].as<bool>()) {
+                if (not _session_views.empty()) {
+                    auto iter = _session_views.begin() + index;
+                    _session_views.erase(iter);
+                    
+                    if (_session_views.empty()) {
+                        _current_session_view.reset();
+                    } else {
+                        _current_session_view = _session_views.at(0);
+                    }
+                    show(_current_session_view);
+                }
+
+            } else {
+                _current_session_view = _session_views.at(index);
+
+                if (vm.count("name")) {
+                    _current_session_view->session_name(vm["name"].as<std::string>());
+                    _tui.update_title();
+                }
+
+                show(_current_session_view);
+            }
+
+        } else if (command == "reset") {
+            if (_current_session_view) {
+                _current_session_view->session_reset();
+                show(_current_session_view);
+
+            } else {
+                _message_view->stream()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " No selected session. select a session using \"session\" command";
+                show(_message_view);
+            }
 
         } else {
             using namespace tui::style;

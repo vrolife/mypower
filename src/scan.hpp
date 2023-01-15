@@ -39,6 +39,8 @@ struct ScanConfig {
 
 struct SessionView : public ContentProvider {
     virtual const std::string session_name() = 0;
+    virtual void session_name(const std::string& name) = 0;
+    virtual void session_reset() = 0;
 };
 
 std::shared_ptr<SessionView> scan(

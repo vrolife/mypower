@@ -84,9 +84,17 @@ public:
         return _name;
     }
 
+    void session_name(const std::string& name) override {
+        _name = name;
+    }
+
+    void session_reset() override {
+        _session.reset();
+    }
+
     StyleString tui_title(size_t width) override
     {
-        return StyleString::layout("Matches: "s + _expr, width, 1, '=', LayoutAlign::Center);
+        return StyleString::layout("Matches: "s + _name + " #"s + std::to_string(_session.size()), width, 1, '+', LayoutAlign::Center);
     }
 
     StyleString tui_item(size_t index, size_t width) override

@@ -429,6 +429,8 @@ public:
         return _provider;
     }
 
+    void update_title();
+
     void attach(std::shared_ptr<CommandHandler>&& handler)
     {
         _handler = handler;
