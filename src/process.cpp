@@ -17,6 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <sys/uio.h>
 #include <sys/signal.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <limits.h>
+
+#include <algorithm>
 
 #include "process.hpp"
 
@@ -122,6 +128,50 @@ bool Process::resume(bool same_user)
         kill_same_user(_pid, SIGCONT);
     }
     return ::kill(_pid, SIGCONT) == 0;
+}
+
+std::string read_process_file(pid_t pid, const char* filename, size_t buffer_size = PATH_MAX) {
+    auto cmdline = std::filesystem::path("/proc") / std::to_string(pid) / filename;
+    std::string buffer{};
+    buffer.resize(buffer_size);
+
+    int fd = ::open(cmdline.c_str(), O_RDONLY);
+    if (fd == -1) {
+        return {};
+    }
+
+    auto size = ::read(fd, buffer.data(), buffer.size());
+    if (size < 0) {
+        ::close(fd);
+        return {};
+    }
+    ::close(fd);
+
+    buffer.resize(size);
+    return buffer;
+}
+
+std::string read_process_comm(pid_t pid)
+{
+    auto buffer = read_process_file(pid, "comm");
+
+    auto iter = std::find_if(buffer.begin(), buffer.end(), [&](char c) {
+        return c == '\n' or c == '\0';
+    });
+
+    buffer.resize(iter - buffer.begin());
+    return buffer;
+}
+
+std::string read_process_cmdline(pid_t pid) {
+    auto buffer = read_process_file(pid, "cmdline");
+
+    for (auto& ch : buffer) {
+        if (ch == '\0') {
+            ch = ' ';
+        }
+    }
+    return buffer;
 }
 
 } // namespace mypower

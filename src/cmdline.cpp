@@ -16,13 +16,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include <sstream>
 
-#include "cmd.hpp"
-#include "cmd_parser.hpp"
-#include "cmd_tokenizer.hpp"
+#include "cmdline.hpp"
+#include "cmdline_parser.hpp"
+#include "cmdline_tokenizer.hpp"
 
 struct ParserContext { };
 
-namespace cmd {
+namespace cmdline {
 
 std::pair<std::string, std::vector<std::string>> parse(const std::string& str)
 {
@@ -33,4 +33,4 @@ std::pair<std::string, std::vector<std::string>> parse(const std::string& str)
     return parser.parse(context, tokenizer);
 }
 
-} // namespace dsl
+} // namespace cmdline

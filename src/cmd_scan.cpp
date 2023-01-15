@@ -14,9 +14,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include <boost/program_options.hpp>
+
 #include "dsl.hpp"
 #include "scanner.hpp"
-#include "scan.hpp"
+#include "mypower.hpp"
+#include "cmd_scan.hpp"
+
+namespace po = boost::program_options;
+using namespace std::string_literals;
 
 namespace mypower {
 
@@ -64,6 +70,7 @@ public:
     }
 };
 
+
 class SessionViewImpl : public SessionView
 {
     std::string _name;
@@ -99,7 +106,35 @@ public:
 
     StyleString tui_item(size_t index, size_t width) override
     {
-        return StyleString{_session.str(index)};
+        // 0xHHHHHHHHHHHH TYPE: DEC HEX REGION
+        using namespace tui::style;
+        StyleStringBuilder builder{};
+
+        auto access = _session.access(index);
+        // std::ostringstream oss;
+        builder << std::hex << SetColor(ColorInfo) << "0x" << access->address().get() << " ";
+        builder.stream([&](std::ostringstream& oss){ access->type(oss); });
+        builder << ResetStyle();
+        builder << ":  ";
+
+        builder << "Dec " << std::dec << SetColor(ColorPrompt);
+        builder.stream([&](std::ostringstream& oss){ access->value(oss); });
+        builder << ResetStyle();
+        
+        builder << "  Hex " 
+            << SetColor(ColorPrompt)
+            << std::hex << "0x";
+
+        builder.stream([&](std::ostringstream& oss){ access->value(oss); });
+        builder << ResetStyle();
+
+        builder << "  Region ";
+
+        _session.find_region(access->address(), [&](VMRegion& region){
+            builder.stream([&](std::ostringstream& oss){ region.string(oss); });
+        });
+
+        return builder.release();
     }
 
     std::string tui_select(size_t index) override {
@@ -110,6 +145,7 @@ public:
         return _session.size();
     }
 };
+
 
 template<typename T>
 static
@@ -152,7 +188,7 @@ void scan_fast(Session& session, dsl::ComparatorType opr, uintptr_t constant1, u
 
 template<typename T>
 static
-void scan(const ScanConfig& config, bool fast_mode, Session& session, dsl::ComparatorExpression& comparator) {
+void scan(const ScanArgs& config, bool fast_mode, Session& session, dsl::ComparatorExpression& comparator) {
     if (fast_mode) {
         scan_fast<T>(
             session,
@@ -170,12 +206,12 @@ void scan(const ScanConfig& config, bool fast_mode, Session& session, dsl::Compa
 std::shared_ptr<SessionView> scan(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<Process>& process,
-    ScanConfig& config
+    ScanArgs& config
 )
 {
     auto view = std::make_shared<SessionViewImpl>(process, config._name, config._expr);
 
-    SuspendProcess suspend{process, config._suspend_same_user, process->pid() != ::getpid()};
+    // SuspendProcess suspend{process, config._suspend_same_user, process->pid() != ::getpid()};
 
     view->_session.update_memory_region();
     
@@ -344,7 +380,7 @@ void filter_fast(Session& session, dsl::ComparatorType comparator, uintptr_t con
 bool filter(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<SessionView>& session_view,
-    ScanConfig& config
+    ScanArgs& config
 )
 {
     RefreshView refresh(session_view);
@@ -437,5 +473,204 @@ bool update(
     view->_session.update_matches();
     return true;
 }
+
+class Scan : public Command {
+    po::options_description _options { "Allowed options" };
+    po::positional_options_description _posiginal {};
+
+public:
+    Scan(Application& app) : Command(app) {
+        _options.add_options()("help", "show help message");
+        _options.add_options()("step,s", po::value<size_t>(), "step size");
+        _options.add_options()("I64,q", po::bool_switch()->default_value(false), "64 bit integer");
+        _options.add_options()("I32,i", po::bool_switch()->default_value(false), "32 bit integer");
+        _options.add_options()("I16,h", po::bool_switch()->default_value(false), "16 bit integer");
+        _options.add_options()("I8,b", po::bool_switch()->default_value(false), "8 bit integer");
+        _options.add_options()("U64,Q", po::bool_switch()->default_value(false), "64 bit unsigned integer");
+        _options.add_options()("U32,I", po::bool_switch()->default_value(false), "32 bit unsigned integer");
+        _options.add_options()("U16,H", po::bool_switch()->default_value(false), "16 bit unsigned integer");
+        _options.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
+        _options.add_options()("expr", po::value<std::string>(), "scan expression");
+        _options.add_options()("name,n", po::value<std::string>(), "session name");
+        _posiginal.add("expr", 1);
+    }
+
+    bool match(const std::string& command) override {
+        return command == "scan";
+    }
+
+    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+        PROGRAM_OPTIONS();
+
+        ScanArgs config;
+
+        try {
+            if (opts.count("expr")) {
+                config._expr = opts["expr"].as<std::string>();
+            }
+
+            if (opts.count("name")) {
+                config._name = opts["name"].as<std::string>();
+            } else {
+                config._name = config._expr;
+            }
+
+            config._type_bits |= opts["I8"].as<bool>() ? MatchTypeBitI8 : 0;
+            config._type_bits |= opts["I16"].as<bool>() ? MatchTypeBitI16 : 0;
+            config._type_bits |= opts["I32"].as<bool>() ? MatchTypeBitI32 : 0;
+            config._type_bits |= opts["I64"].as<bool>() ? MatchTypeBitI64 : 0;
+            config._type_bits |= opts["U8"].as<bool>() ? MatchTypeBitU8 : 0;
+            config._type_bits |= opts["U16"].as<bool>() ? MatchTypeBitU16 : 0;
+            config._type_bits |= opts["U32"].as<bool>() ? MatchTypeBitU32 : 0;
+            config._type_bits |= opts["U64"].as<bool>() ? MatchTypeBitU64 : 0;
+
+        } catch (const std::exception& e) {
+            message()
+                << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                << e.what();
+            show();
+            return;
+        }
+
+        if (config._expr.empty()) {
+            message() << "Usage: " << command << " [options] expression\n"
+                                    << _options;
+            show();
+            return;
+        }
+
+        if (not _app._process) {
+            message()
+                << SetColor(ColorError)
+                << "Error:"
+                << ResetStyle()
+                << " Invalid target process, attach to target using the 'attach' command";
+            show();
+            return;
+        }
+
+        try {
+            auto view = scan(_app._message_view, _app._process, config);
+            if (view) {
+                _app._session_views.emplace_back(view);
+                _app._current_session_view = view;
+                show(view);
+            }
+        } catch (const std::exception& e) {
+            message()
+                << SetColor(ColorError) << "Error:" << ResetStyle() << " "
+                << e.what();
+            show();
+            return;
+        }
+    }
+};
+
+class Filter : public Command {
+    po::options_description _options { "Allowed options" };
+    po::positional_options_description _posiginal {};
+
+public:
+    Filter(Application& app) : Command(app) {
+        _options.add_options()("help", "show help message");
+        _options.add_options()("expr,f", po::value<std::string>(), "filter expression");
+        _posiginal.add("expr", 1);
+    }
+
+    bool match(const std::string& command) override {
+        return command == "filter";
+    }
+
+    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+        PROGRAM_OPTIONS();
+
+        ScanArgs config;
+
+        try {
+            if (opts.count("expr")) {
+                config._expr = opts["expr"].as<std::string>();
+            }
+        } catch (const std::exception& e) {
+            message()
+                << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                << e.what();
+            return;
+        }
+
+        if (config._expr.empty()) {
+            message() << "Usage: " << command << " [options] expression\n"
+                                    << _options;
+            show();
+            return;
+        }
+
+        if (_app._current_session_view == nullptr) {
+            message()
+                << SetColor(ColorError)
+                << "Error:"
+                << ResetStyle()
+                << " No avaliable session, create a session using the 'scan' command";
+            show();
+            return;
+        }
+
+        if (not _app._process) {
+            message()
+                << SetColor(ColorError)
+                << "Error:"
+                << ResetStyle()
+                << " Invalid target process: attach to target using the 'attach' command";
+            show();
+            return;
+        }
+
+        try {
+            filter(_app._message_view, _app._current_session_view, config);
+        } catch (const std::exception& e) {
+            message()
+                << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() << " "
+                << e.what();
+            show();
+            return;
+        }
+    }
+};
+
+class Update : public Command {
+    po::options_description _options { "Allowed options" };
+    po::positional_options_description _posiginal {};
+
+public:
+    Update(Application& app) : Command(app) {
+        _options.add_options()("help", "show help message");
+        _options.add_options()("expr,f", po::value<std::string>(), "filter expression");
+        _posiginal.add("expr", 1);
+    }
+
+    bool match(const std::string& command) override {
+        return command == "filter";
+    }
+
+    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+        using namespace tui::style;
+
+        if (_app._current_session_view == nullptr) {
+            message()
+                << SetColor(ColorError)
+                << "Error:"
+                << ResetStyle()
+                << " No avaliable session, create a session using the 'scan' command";
+            return;
+        }
+
+        update(_app._message_view, _app._current_session_view);
+    }
+};
+
+static RegisterCommand<Scan> _Scan{};
+
+static RegisterCommand<Filter> _Filter{};
+
+static RegisterCommand<Update> _Update{};
 
 } // namespace mypower

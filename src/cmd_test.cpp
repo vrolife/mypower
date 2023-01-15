@@ -14,15 +14,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#ifndef __testview_hpp__
-#define __testview_hpp__
-
 #include <random>
 
-#include "tui.hpp"
+#include <boost/program_options.hpp>
+
+#include "mypower.hpp"
+
+namespace po = boost::program_options;
+using namespace std::string_literals;
 
 namespace mypower {
-using namespace tui;
 
 class TestView : public VisibleContainer<ssize_t> {
 public:
@@ -45,8 +46,13 @@ public:
     StyleString tui_item(size_t index, size_t width) override
     {
         switch (index) {
-        case 0:
-            return StyleString { std::to_string(at(0)) + " (INT32)"};
+        case 0: {
+            std::ostringstream os{};
+            os << "INT32: " << at(0) 
+                << " 0x" << std::hex << at(0) 
+                << " 0o" << std::oct << at(0);
+            return StyleString { os.str() };
+        }
         case 1:
             return StyleString { "+1" };
         case 2:
@@ -87,7 +93,45 @@ public:
     }
 };
 
+class Test : public Command {
+    std::shared_ptr<TestView> _test_view;
+
+    po::options_description _options { "Allowed options" };
+    po::positional_options_description _posiginal {};
+
+public:
+    Test(Application& app) : Command(app) {
+        _options.add_options()("help", "show help message");
+        _options.add_options()("value", po::value<ssize_t>(), "set value");
+        _posiginal.add("value", 1);
+
+        _test_view = std::make_shared<TestView>();
+    }
+
+    bool match(const std::string& command) override {
+        return command == "test";
+    }
+
+    void run(const std::string& command, const std::vector<std::string>& arguments) override {
+
+        PROGRAM_OPTIONS();
+
+        try {
+            if (opts.count("value")) {
+                _test_view->at(0) = opts["value"].as<ssize_t>();
+            }
+        } catch (const std::exception& e) {
+            message()
+                << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                << e.what();
+            show();
+            return;
+        }
+
+        show(_test_view);
+    }
+};
+
+static RegisterCommand<Test> _Test{};
 
 } // namespace mypower
-
-#endif

@@ -3,11 +3,13 @@
 #include <iostream>
 #include <memory>
 
-#include "scan.hpp"
 #include "tui.hpp"
 #include "dsl.hpp"
 #include "process.hpp"
 #include "scanner.hpp"
+#include "mypower.hpp"
+
+#include "cmd_scan.hpp"
 
 using namespace tui;
 using namespace dsl;
@@ -19,7 +21,7 @@ int main(int argc, char *argv[])
 
     std::shared_ptr<MessageView> message_view = std::make_shared<MessageView>();
     std::shared_ptr<Process> process = std::make_shared<Process>(::getpid());
-    ScanConfig config{};
+    ScanArgs config{};
     config._expr = "=[24830,24835]";
     config._step = 1;
     config._suspend_same_user = false;

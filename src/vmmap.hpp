@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <filesystem>
 #include <string>
+#include <sstream>
 #include <vector>
 
 namespace mypower {
@@ -145,6 +146,8 @@ struct VMRegion {
     {
         return _end.get() - _begin.get();
     }
+
+    void string(std::ostringstream& oss);
 
     typedef std::vector<VMRegion> ListType;
 

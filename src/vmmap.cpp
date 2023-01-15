@@ -85,6 +85,45 @@ namespace mypower {
         return fragments;
     }
 
+    void VMRegion::string(std::ostringstream& oss) {
+        oss << std::hex 
+            << "0x"
+            << static_cast<uintptr_t>(_begin)
+            << "-"
+            << "0x"
+            << static_cast<uintptr_t>(_end)
+            << " ";
+
+        size_t align = 6;
+        if (_prot & kRegionFlagRead) {
+            oss << "R";
+            align -= 1;
+        }
+        if (_prot & kRegionFlagWrite) {
+            oss << "W";
+            align -= 1;
+        }
+        if (_prot & kRegionFlagExec) {
+            oss << "X";
+            align -= 1;
+        }
+
+        align -= 1;
+        if (_shared) {
+            oss << "S";
+        } else {
+            align -= 1;
+        }
+
+        while (align --) {
+            oss << " ";
+        }
+
+        oss << std::setw(8) << std::hex << _offset;
+
+        oss << " " << _file << " " << _desc;
+    }
+
     std::vector<VMRegion> VMRegion::snapshot(std::istream& is) 
     {
         return snapshot_impl(std::string{std::istreambuf_iterator<char>(is), std::istreambuf_iterator<char>()});

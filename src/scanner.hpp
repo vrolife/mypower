@@ -104,9 +104,13 @@ public:
             return false;
         }
         void* cache = _backup_size == 0 ? _cache : reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(_cache) + _page_size);
-        _cached_size = _process->read(addr, cache, std::min(_cache_capacity, (_end_addr - addr).get()));
+        auto read_size = std::min(_cache_capacity, (_end_addr - addr).get());
+        _cached_size = _process->read(addr, cache, read_size);
         if (_cached_size == -1) {
-            throw std::runtime_error("Read memory failed: "s + strerror(errno));
+            std::ostringstream oss{};
+            oss << "Read memory failed: "s + strerror(errno) << ". "
+                << std::hex << "0x" << addr.get() << " (0x" << read_size << ")";
+            throw std::runtime_error(oss.str());
         }
 
         auto next_backup_size = _cached_size % _step;
@@ -158,6 +162,16 @@ public:
         _memory_regions = std::forward<T>(regions);
     }
 
+    template<typename T>
+    void find_region(VMAddress addr, T&& cb) {
+        for (auto& region : _memory_regions) {
+            if (addr >= region._begin and addr < region._end) {
+                cb(region);
+                break;
+            }
+        }
+    }
+
     void reset()
     {
         _memory_regions.clear();
@@ -190,16 +204,16 @@ public:
         return sz;
     }
 
-    std::string str(size_t index) const {
+    std::unique_ptr<AccessMatch> access(size_t index) const {
         size_t offset = 0;
-#define __STR(t) \
+#define __ACCESS(t) \
         if (index >= offset and index < (offset + _matches_##t.size())) { \
-            return to_string(_matches_##t.at(index - offset)); \
+            return access_match(_matches_##t.at(index - offset)); \
         } \
         offset += _matches_##t.size();
 
-    MATCH_TYPES(__STR);
-#undef __STR
+    MATCH_TYPES(__ACCESS);
+#undef __ACCESS
         throw std::out_of_range("index out of range");
     }
     
@@ -247,8 +261,12 @@ public:
                 add_match(std::move(value));
             };
 
-            while (mapper.next()) {
-                scanner(mapper.address_begin(), mapper.begin(), mapper.end(), callback);
+            try {
+                while (mapper.next()) {
+                    scanner(mapper.address_begin(), mapper.begin(), mapper.end(), callback);
+                }
+            } catch (...) {
+                continue;
             }
         }
     }

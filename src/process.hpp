@@ -43,6 +43,26 @@ public:
     bool resume(bool same_user = false);
 };
 
+std::string read_process_comm(pid_t);
+std::string read_process_cmdline(pid_t);
+
+template<typename F>
+void for_each_process(F&& callback) {
+    auto procfs = std::filesystem::path("/proc");
+
+    auto begin = std::filesystem::directory_iterator(procfs);
+    auto end = std::filesystem::directory_iterator();
+    for (auto iter = begin; iter != end; ++ iter) {
+        pid_t pid = -1;
+        try {
+            pid = std::stoi(iter->path().stem());
+        } catch(...) { }
+        if (pid != -1) {
+            callback(pid);
+        }
+    }
+}
+
 } // namespace mypower
 
 #endif

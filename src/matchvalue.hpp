@@ -114,30 +114,82 @@ MATCH_TYPES(__MATCH);
 
 #define __TYPE_TO_STRING(t) \
     inline \
-    std::string to_string(const type##t &) { \
+    const char* type_to_string(const type##t &) { \
         return #t; \
     }
 
 MATCH_TYPES(__TYPE_TO_STRING);
 #undef __TYPE_TO_STRING
 
+struct AccessMatch {
+    virtual ~AccessMatch() = default;
+    virtual VMAddress address() = 0;
+    virtual void value(std::ostringstream& oss) = 0;
+    virtual std::string type() = 0;
+    virtual void type(std::ostringstream& oss) = 0;
+};
+
+template<typename T>
+class AccessMatchNumber : public AccessMatch {
+    const T* _ptr;
+public:
+    AccessMatchNumber(const T* ptr) : _ptr{ptr} { }
+
+    VMAddress address() override {
+        return _ptr->_addr;
+    }
+
+    void value(std::ostringstream& oss) override {
+        oss << _ptr->_value;
+    }
+
+    std::string type() override {
+        return type_to_string(_ptr->_value);
+    }
+
+    void type(std::ostringstream& oss) override {
+        oss << type_to_string(_ptr->_value);
+    }
+};
+
+template<typename T>
+class AccessMatchUnknown : public AccessMatch {
+    const T* _ptr;
+public:
+    AccessMatchUnknown(const T* ptr) : _ptr{ptr} { }
+
+    VMAddress address() override {
+        return _ptr->_addr;
+    }
+
+    void value(std::ostringstream& oss) override {
+        oss << "TODO convert bytes to hex string";
+    }
+
+    std::string type() override {
+        return type_to_string(_ptr->_value);
+    }
+
+    void type(std::ostringstream& oss) override {
+        oss << type_to_string(_ptr->_value);
+    }
+};
+
 template<typename T>
 inline 
 typename std::enable_if<
     std::is_integral<typename T::type>::value
     or std::is_floating_point<typename T::type>::value
-    , std::string>::
-type to_string(const T& match)
+    , std::unique_ptr<AccessMatch>>::
+type access_match(const T& match)
 {
-    std::ostringstream os;
-    os << std::hex << "0x" << match._addr.get() << std::dec << " " << to_string(match._value) << ": " << match._value;
-    return os.str();
+    return std::unique_ptr<AccessMatch>{new AccessMatchNumber<T>(&match)};
 }
 
 inline
-std::string to_string(const MatchBYTES& match)
+std::unique_ptr<AccessMatch> access_match(const MatchBYTES& match)
 {
-    return "TODO convert bytes to hex string";
+    return std::unique_ptr<AccessMatch>{new AccessMatchUnknown<MatchBYTES>(&match)};
 }
 
 } // namespace mypower

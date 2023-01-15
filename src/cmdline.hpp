@@ -14,15 +14,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#ifndef __cmd_hpp__
-#define __cmd_hpp__
+#ifndef __cmdline_hpp__
+#define __cmdline_hpp__
 
 #include <vector>
 #include <string>
 
 #include "playlang/playlang.hpp"
 
-namespace cmd {
+namespace cmdline {
 using namespace playlang;
 
 #define CMD_VOID_TOKEN(n) \
@@ -170,6 +170,6 @@ struct COMMAND : public Symbol<std::pair<std::string, std::vector<std::string>>>
 
 std::pair<std::string, std::vector<std::string>> parse(const std::string& str);
 
-} // namespace cmd
+} // namespace cmdline
 
 #endif

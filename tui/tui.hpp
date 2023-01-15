@@ -198,8 +198,16 @@ public:
 
     template<typename T>
     StyleStringBuilder& operator <<(T&& value) {
+        stream([&](std::ostringstream& stream){
+            _buffer << std::forward<T>(value);
+        });
+        return *this;
+    }
+
+    template<typename T>
+    void stream(T&& callback) {
         auto pos = _buffer.tellp();
-        _buffer << std::forward<T>(value);
+        callback(_buffer);
         auto end = _buffer.tellp();
         auto size = end - pos;
         if (size <= UINT8_MAX) {
@@ -218,7 +226,6 @@ public:
             auto buf = static_cast<uint64_t>(size);
             _bytecode.append(reinterpret_cast<char*>(&buf), 8);
         }
-        return *this;
     }
     
     StyleStringBuilder& operator <<(::tui::style::SetStyle&& value) {

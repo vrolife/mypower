@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "dsl.hpp"
 
 #include "mathexpr.hpp"
-#include "cmd.hpp"
+#include "cmdline.hpp"
 
 #include "compexpr.hpp"
 #include "compexpr_parser.hpp"
@@ -142,7 +142,7 @@ ComparatorExpression parse_comparator_expression(const std::string& string)
 
 std::pair<std::string, std::vector<std::string>> parse_command(const std::string& string) {
     try {
-        return cmd::parse(string);
+        return cmdline::parse(string);
     } catch(...) {
         return {{},{}};
     }

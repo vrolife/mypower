@@ -14,21 +14,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-#ifndef __scan_hpp__
-#define __scan_hpp__
-
-#include <string>
-#include <memory>
-
-#include "process.hpp"
-#include "tui.hpp"
-#include "matchvalue.hpp"
+#ifndef __cmd_scan_hpp__
+#define __cmd_scan_hpp__
 
 namespace mypower {
 
-using namespace tui;
-
-struct ScanConfig {
+struct ScanArgs {
     std::string _name;
     std::string _expr;
     size_t _step{0};
@@ -37,27 +28,16 @@ struct ScanConfig {
     bool _suspend_same_user{false};
 };
 
-struct SessionView : public ContentProvider {
-    virtual const std::string session_name() = 0;
-    virtual void session_name(const std::string& name) = 0;
-    virtual void session_reset() = 0;
-};
-
 std::shared_ptr<SessionView> scan(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<Process>& process,
-    ScanConfig& config
+    ScanArgs& config
 );
 
 bool filter(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<SessionView>& session_view,
-    ScanConfig& config
-);
-
-bool update(
-    std::shared_ptr<MessageView>& message_view,
-    std::shared_ptr<SessionView>& session_view
+    ScanArgs& config
 );
 
 } // namespace mypower
