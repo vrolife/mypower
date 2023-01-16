@@ -38,12 +38,12 @@ public:
         emplace_back(0);
     }
 
-    StyleString tui_title(size_t width) override
+    AttributedString tui_title(size_t width) override
     {
-        return StyleString::layout("Test", width, 1, '-', LayoutAlign::Center);
+        return AttributedString::layout("Test", width, 1, '-', LayoutAlign::Center);
     }
 
-    StyleString tui_item(size_t index, size_t width) override
+    AttributedString tui_item(size_t index, size_t width) override
     {
         switch (index) {
         case 0: {
@@ -51,16 +51,16 @@ public:
             os << "INT32: " << at(0)
                << " 0x" << std::hex << at(0)
                << " 0o" << std::oct << at(0);
-            return StyleString { os.str() };
+            return AttributedString { os.str() };
         }
         case 1:
-            return StyleString { "+1" };
+            return AttributedString { "+1" };
         case 2:
-            return StyleString { "-1" };
+            return AttributedString { "-1" };
         case 3:
-            return StyleString { "+5" };
+            return AttributedString { "+5" };
         case 4:
-            return StyleString { "-5" };
+            return AttributedString { "-5" };
         }
         return {};
     }

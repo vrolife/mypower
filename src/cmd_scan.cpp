@@ -104,16 +104,16 @@ public:
         _session.reset();
     }
 
-    StyleString tui_title(size_t width) override
+    AttributedString tui_title(size_t width) override
     {
-        return StyleString::layout("Matches: "s + _name + " #"s + std::to_string(_session.size()), width, 1, '+', LayoutAlign::Center);
+        return AttributedString::layout("Matches: "s + _name + " #"s + std::to_string(_session.size()), width, 1, '+', LayoutAlign::Center);
     }
 
-    StyleString tui_item(size_t index, size_t width) override
+    AttributedString tui_item(size_t index, size_t width) override
     {
         // 0xHHHHHHHHHHHH TYPE: DEC HEX REGION
-        using namespace tui::style;
-        StyleStringBuilder builder {};
+        using namespace tui::attributes;
+        AttributedStringBuilder builder {};
 
         auto access = _session.access(index);
         // std::ostringstream oss;
@@ -235,9 +235,9 @@ std::shared_ptr<SessionView> scan(
 
         if (data_size == 0) {
             message_view->stream()
-                << style::SetColor(style::ColorError)
+                << attributes::SetColor(attributes::ColorError)
                 << "Error:"
-                << style::ResetStyle()
+                << attributes::ResetStyle()
                 << " Invalid date type. Example: search --int32 0x123";
             return nullptr;
         }
@@ -245,11 +245,11 @@ std::shared_ptr<SessionView> scan(
         if (config._step == 0) {
             config._step = data_size;
             message_view->stream()
-                << style::SetColor(style::ColorWarning)
+                << attributes::SetColor(attributes::ColorWarning)
                 << "Warning:"
-                << style::ResetStyle()
+                << attributes::ResetStyle()
                 << " Step size is unspecified. Using data size "
-                << style::SetColor(style::ColorInfo) << data_size << style::ResetStyle()
+                << attributes::SetColor(attributes::ColorInfo) << data_size << attributes::ResetStyle()
                 << " bytes";
         }
 
@@ -286,16 +286,16 @@ std::shared_ptr<SessionView> scan(
         case dsl::ComparatorType::LT:
         case dsl::ComparatorType::LE:
             message_view->stream()
-                << style::SetColor(style::ColorError)
+                << attributes::SetColor(attributes::ColorError)
                 << "Error:"
-                << style::ResetStyle()
+                << attributes::ResetStyle()
                 << " Scan mode does not support filter expression";
             return nullptr;
         case dsl::ComparatorType::None:
             message_view->stream()
-                << style::SetColor(style::ColorError)
+                << attributes::SetColor(attributes::ColorError)
                 << "Error:"
-                << style::ResetStyle()
+                << attributes::ResetStyle()
                 << " Invalid expression";
             return nullptr;
         }
@@ -333,9 +333,9 @@ std::shared_ptr<SessionView> scan(
         }
     } else {
         message_view->stream()
-            << style::SetColor(style::ColorError)
+            << attributes::SetColor(attributes::ColorError)
             << "Error:"
-            << style::ResetStyle()
+            << attributes::ResetStyle()
             << " Unsupported data type";
         return nullptr;
     }
@@ -434,9 +434,9 @@ bool filter(
         return true;
     case dsl::ComparatorType::None:
         message_view->stream()
-            << style::SetColor(style::ColorError)
+            << attributes::SetColor(attributes::ColorError)
             << "Error:"
-            << style::ResetStyle()
+            << attributes::ResetStyle()
             << " Invalid expression";
         return false;
     }
@@ -453,9 +453,9 @@ bool filter(
             or view->_session.FLOAT_size()
             or view->_session.BYTES_size()) {
             message_view->stream()
-                << style::SetColor(style::ColorWarning)
+                << attributes::SetColor(attributes::ColorWarning)
                 << "Warning:"
-                << style::ResetStyle()
+                << attributes::ResetStyle()
                 << " Complex filter expression will not be apply to non-integeral matches";
         }
         auto signed_code = comparator.compile(false);
@@ -665,7 +665,7 @@ public:
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
-        using namespace tui::style;
+        using namespace tui::attributes;
 
         if (_app._current_session_view == nullptr) {
             message()

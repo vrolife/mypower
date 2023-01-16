@@ -74,10 +74,10 @@ public:
         show(_message_view);
     }
 
-    StyleString tui_prompt(size_t width) override
+    AttributedString tui_prompt(size_t width) override
     {
-        using namespace ::tui::style;
-        StyleStringBuilder builder {};
+        using namespace ::tui::attributes;
+        AttributedStringBuilder builder {};
         builder
             << SetColor(ColorPrompt)
             << (_current_session_view ? _current_session_view->session_name() : "") << ResetStyle()
@@ -144,7 +144,7 @@ public:
 
     void tui_run(const std::string& line) override
     {
-        using namespace tui::style;
+        using namespace tui::attributes;
 
         if (line.empty()) {
             if (_current_view == _message_view) {
@@ -194,7 +194,7 @@ public:
                 }
             }
 
-            using namespace tui::style;
+            using namespace tui::attributes;
             _message_view->stream()
                 << SetColor(ColorWarning) << "Unknown command:"
                 << ResetStyle() << " " << line;

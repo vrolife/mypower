@@ -24,7 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "tui.hpp"
 
 #define PROGRAM_OPTIONS()                                                                     \
-    using namespace tui::style;                                                               \
+    using namespace tui::attributes;                                                               \
     po::variables_map opts {};                                                                \
     try {                                                                                     \
         po::store(po::command_line_parser(arguments)                                          \

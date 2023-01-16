@@ -38,9 +38,9 @@ SOFTWARE.
 #include <vector>
 
 namespace tui {
-class StyleStringBuilder;
+class AttributedStringBuilder;
 
-namespace style {
+namespace attributes {
     enum Attribute {
         AttrNormal = A_NORMAL,
         AttrStandout = A_STANDOUT,
@@ -71,52 +71,52 @@ namespace style {
     };
 
     class SetStyle {
-        friend class ::tui::StyleStringBuilder;
-        NCURSES_CH_T _style;
+        friend class ::tui::AttributedStringBuilder;
+        NCURSES_CH_T _attribute;
 
     public:
-        SetStyle(NCURSES_CH_T style)
-            : _style(style)
+        SetStyle(NCURSES_CH_T attribute)
+            : _attribute(attribute)
         {
         }
     };
 
     class SetColor {
-        friend class ::tui::StyleStringBuilder;
-        NCURSES_CH_T _style;
+        friend class ::tui::AttributedStringBuilder;
+        NCURSES_CH_T _attribute;
 
     public:
         SetColor(Color color)
-            : _style(COLOR_PAIR(color))
+            : _attribute(COLOR_PAIR(color))
         {
         }
     };
 
     class EnableStyle {
-        friend class ::tui::StyleStringBuilder;
-        NCURSES_CH_T _style;
+        friend class ::tui::AttributedStringBuilder;
+        NCURSES_CH_T _attribute;
 
     public:
-        EnableStyle(NCURSES_CH_T style)
-            : _style(style)
+        EnableStyle(NCURSES_CH_T attribute)
+            : _attribute(attribute)
         {
         }
     };
 
     class DisableStyle {
-        friend class ::tui::StyleStringBuilder;
-        NCURSES_CH_T _style;
+        friend class ::tui::AttributedStringBuilder;
+        NCURSES_CH_T _attribute;
 
     public:
-        DisableStyle(NCURSES_CH_T style)
-            : _style(style)
+        DisableStyle(NCURSES_CH_T attribute)
+            : _attribute(attribute)
         {
         }
     };
 
     struct ResetStyle { };
 
-} // namespace style
+} // namespace attribute
 
 enum class LayoutAlign {
     Start,
@@ -124,8 +124,8 @@ enum class LayoutAlign {
     End
 };
 
-class StyleString {
-    friend class StyleStringBuilder;
+class AttributedString {
+    friend class AttributedStringBuilder;
 
     std::string _string {};
     std::string _bytecode {};
@@ -143,30 +143,30 @@ class StyleString {
         BytecodeRepeat16 = 9,
     };
 
-    StyleString(std::string&& string, std::string&& bytecode)
+    AttributedString(std::string&& string, std::string&& bytecode)
         : _string(std::move(string))
         , _bytecode(std::move(bytecode))
     {
     }
 
-    StyleString(std::string&& string, std::string& bytecode)
+    AttributedString(std::string&& string, std::string& bytecode)
         : _string(std::move(string))
         , _bytecode(bytecode)
     {
     }
 
 public:
-    StyleString() = default;
+    AttributedString() = default;
 
-    StyleString(const std::string& string)
+    AttributedString(const std::string& string)
         : _string(string)
     {
     }
 
-    StyleString(const StyleString&) = default;
-    StyleString(StyleString&&) noexcept = default;
-    StyleString& operator=(const StyleString&) = default;
-    StyleString& operator=(StyleString&&) noexcept = default;
+    AttributedString(const AttributedString&) = default;
+    AttributedString(AttributedString&&) noexcept = default;
+    AttributedString& operator=(const AttributedString&) = default;
+    AttributedString& operator=(AttributedString&&) noexcept = default;
 
     operator std::string&()
     {
@@ -187,22 +187,22 @@ public:
 
     size_t empty() const { return _string.empty(); }
 
-    bool style() const
+    bool attribute() const
     {
         return not _bytecode.empty();
     }
 
-    static StyleString layout(StyleString&& string, size_t width, size_t gap, int decoration, LayoutAlign align)
+    static AttributedString layout(AttributedString&& string, size_t width, size_t gap, int decoration, LayoutAlign align)
     {
         return layout(string, width, gap, decoration, align);
     }
 
-    static StyleString layout(std::string&& string, size_t width, size_t gap, int decoration, LayoutAlign align)
+    static AttributedString layout(std::string&& string, size_t width, size_t gap, int decoration, LayoutAlign align)
     {
         return layout(string, width, gap, decoration, align);
     }
 
-    static StyleString layout(StyleString& string, size_t width, size_t gap, int decoration, LayoutAlign align);
+    static AttributedString layout(AttributedString& string, size_t width, size_t gap, int decoration, LayoutAlign align);
 
     const std::string& string() const
     {
@@ -210,19 +210,19 @@ public:
     }
 };
 
-class StyleStringBuilder {
+class AttributedStringBuilder {
     std::ostringstream _buffer {};
     std::string _bytecode {};
 
 public:
-    StyleStringBuilder() { }
-    StyleStringBuilder(const StyleStringBuilder&) = delete;
-    StyleStringBuilder(StyleStringBuilder&&) noexcept = default;
-    StyleStringBuilder& operator=(const StyleStringBuilder&) = delete;
-    StyleStringBuilder& operator=(StyleStringBuilder&&) noexcept = default;
+    AttributedStringBuilder() { }
+    AttributedStringBuilder(const AttributedStringBuilder&) = delete;
+    AttributedStringBuilder(AttributedStringBuilder&&) noexcept = default;
+    AttributedStringBuilder& operator=(const AttributedStringBuilder&) = delete;
+    AttributedStringBuilder& operator=(AttributedStringBuilder&&) noexcept = default;
 
     template <typename T>
-    StyleStringBuilder& operator<<(T&& value)
+    AttributedStringBuilder& operator<<(T&& value)
     {
         stream([&](std::ostringstream& stream) {
             _buffer << std::forward<T>(value);
@@ -238,74 +238,74 @@ public:
         auto end = _buffer.tellp();
         auto size = end - pos;
         if (size <= UINT8_MAX) {
-            _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString8));
+            _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString8));
             _bytecode.push_back(static_cast<uint8_t>(size));
         } else if (size <= UINT16_MAX) {
-            _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString16));
+            _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString16));
             auto buf = static_cast<uint16_t>(size);
             _bytecode.append(reinterpret_cast<char*>(&buf), 2);
         } else if (size <= UINT32_MAX) {
-            _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString32));
+            _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString32));
             auto buf = static_cast<uint32_t>(size);
             _bytecode.append(reinterpret_cast<char*>(&buf), 4);
         } else if (size <= UINT64_MAX) {
-            _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString64));
+            _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString64));
             auto buf = static_cast<uint64_t>(size);
             _bytecode.append(reinterpret_cast<char*>(&buf), 8);
         }
     }
 
-    StyleStringBuilder& operator<<(::tui::style::SetStyle&& value)
+    AttributedStringBuilder& operator<<(::tui::attributes::SetStyle&& value)
     {
-        auto style = value._style;
-        _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrSet));
-        _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
+        auto attribute = value._attribute;
+        _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeAttrSet));
+        _bytecode.append(reinterpret_cast<char*>(&attribute), sizeof(attribute));
         return *this;
     }
 
-    StyleStringBuilder& operator<<(::tui::style::SetColor&& value)
+    AttributedStringBuilder& operator<<(::tui::attributes::SetColor&& value)
     {
-        auto style = value._style;
-        _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrOn));
-        _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
+        auto attribute = value._attribute;
+        _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeAttrOn));
+        _bytecode.append(reinterpret_cast<char*>(&attribute), sizeof(attribute));
         return *this;
     }
 
-    StyleStringBuilder& operator<<(::tui::style::EnableStyle&& value)
+    AttributedStringBuilder& operator<<(::tui::attributes::EnableStyle&& value)
     {
-        auto style = value._style;
-        _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrOn));
-        _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
+        auto attribute = value._attribute;
+        _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeAttrOn));
+        _bytecode.append(reinterpret_cast<char*>(&attribute), sizeof(attribute));
         return *this;
     }
 
-    StyleStringBuilder& operator<<(::tui::style::DisableStyle&& value)
+    AttributedStringBuilder& operator<<(::tui::attributes::DisableStyle&& value)
     {
-        auto style = value._style;
-        _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrOff));
-        _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
+        auto attribute = value._attribute;
+        _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeAttrOff));
+        _bytecode.append(reinterpret_cast<char*>(&attribute), sizeof(attribute));
         return *this;
     }
 
-    StyleStringBuilder& operator<<(::tui::style::ResetStyle&& value)
+    AttributedStringBuilder& operator<<(::tui::attributes::ResetStyle&& value)
     {
-        auto style = 0;
-        _bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeAttrSet));
-        _bytecode.append(reinterpret_cast<char*>(&style), sizeof(style));
+        auto attribute = 0;
+        _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeAttrSet));
+        _bytecode.append(reinterpret_cast<char*>(&attribute), sizeof(attribute));
         return *this;
     }
 
-    StyleString str()
+    AttributedString str()
     {
-        return StyleString { _buffer.str(), _bytecode };
+        return AttributedString { _buffer.str(), _bytecode };
     }
 
-    StyleString release()
+    AttributedString release()
     {
         return { _buffer.str(), std::move(_bytecode) };
     }
 
-    static void print_style_string(WINDOW* win, const StyleString& string, bool reverse = false);
+    static void print_attributed_string(WINDOW* win, const AttributedString& string, bool reverse = false);
 };
 
 class TUI;
@@ -322,9 +322,9 @@ struct ContentProvider {
     virtual bool tui_key(int key) { return false; };
     virtual std::string tui_select(size_t index) { return {}; }
 
-    virtual StyleString tui_title(size_t width) = 0;
+    virtual AttributedString tui_title(size_t width) = 0;
     virtual size_t tui_count() = 0;
-    virtual StyleString tui_item(size_t lineno, size_t width) = 0;
+    virtual AttributedString tui_item(size_t lineno, size_t width) = 0;
 
     virtual void tui_notify_changed();
 
@@ -346,7 +346,7 @@ private:
 
 struct CommandHandler {
     virtual ~CommandHandler() = default;
-    virtual StyleString tui_prompt(size_t width) = 0;
+    virtual AttributedString tui_prompt(size_t width) = 0;
     virtual void tui_run(const std::string& command) = 0;
     virtual bool tui_key(int key) { return false; }
 };
@@ -429,7 +429,7 @@ public:
 namespace detail {
 
     struct ItemCache {
-        StyleString _conetnt;
+        AttributedString _conetnt;
         size_t _height;
     };
 
@@ -452,7 +452,7 @@ class TUI {
     Editor _editor {};
 
     size_t _title_height { 1 };
-    StyleString _title_string {};
+    AttributedString _title_string {};
 
     size_t _content_scroll_lines { 0 };
     size_t _content_cached_index { 0 };
@@ -583,18 +583,18 @@ class HistoryView : public VisibleContainer<std::string> {
 public:
     HistoryView();
 
-    StyleString tui_title(size_t width) override;
+    AttributedString tui_title(size_t width) override;
 
     void history_key(int key, Editor& editor);
 
     void tui_notify_changed() override;
 
-    StyleString tui_item(size_t index, size_t width) override
+    AttributedString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString {};
+            return AttributedString {};
         }
-        return StyleString { this->at(index) };
+        return AttributedString { this->at(index) };
     }
 };
 
@@ -604,7 +604,7 @@ class MessageStream {
     friend class MessageView;
 
     std::shared_ptr<MessageView> _view;
-    StyleStringBuilder _builder {};
+    AttributedStringBuilder _builder {};
 
     MessageStream(std::shared_ptr<MessageView>& view)
         : _view(view)
@@ -632,7 +632,7 @@ public:
     }
 };
 
-class MessageView : public VisibleContainer<StyleString>, public std::enable_shared_from_this<MessageView> {
+class MessageView : public VisibleContainer<AttributedString>, public std::enable_shared_from_this<MessageView> {
     size_t _message_max;
 
 public:
@@ -642,17 +642,17 @@ public:
         set_flags(ContentProviderFlagAutoScrollTail);
     }
 
-    StyleString tui_title(size_t width) override
+    AttributedString tui_title(size_t width) override
     {
-        return StyleString::layout("Message", width, 1, '=', LayoutAlign::Center);
+        return AttributedString::layout("Message", width, 1, '=', LayoutAlign::Center);
     }
 
-    StyleString tui_item(size_t index, size_t width) override
+    AttributedString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString {};
+            return AttributedString {};
         }
-        return StyleString { this->at(index) };
+        return AttributedString { this->at(index) };
     }
 
     MessageStream stream()

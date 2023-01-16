@@ -37,17 +37,17 @@ public:
         this->emplace_back("exit");
     }
 
-    StyleString tui_title(size_t width) override
+    AttributedString tui_title(size_t width) override
     {
-        return StyleString::layout("Main menu", width, 1, '=', LayoutAlign::Center);
+        return AttributedString::layout("Main menu", width, 1, '=', LayoutAlign::Center);
     }
 
-    StyleString tui_item(size_t index, size_t width) override
+    AttributedString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString {};
+            return AttributedString {};
         }
-        return StyleString { this->at(index) };
+        return AttributedString { this->at(index) };
     }
 };
 
@@ -64,17 +64,17 @@ public:
         }
     }
 
-    StyleString tui_title(size_t width) override
+    AttributedString tui_title(size_t width) override
     {
-        return StyleString::layout("Long List", width, 1, '=', LayoutAlign::Center);
+        return AttributedString::layout("Long List", width, 1, '=', LayoutAlign::Center);
     }
 
-    StyleString tui_item(size_t index, size_t width) override
+    AttributedString tui_item(size_t index, size_t width) override
     {
         if (index >= this->size()) {
-            return StyleString {};
+            return AttributedString {};
         }
-        return StyleString { this->at(index) };
+        return AttributedString { this->at(index) };
     }
 };
 
@@ -99,10 +99,10 @@ public:
         push(_message_view);
     }
 
-    StyleString tui_prompt(size_t width) override
+    AttributedString tui_prompt(size_t width) override
     {
-        using namespace ::tui::style;
-        StyleStringBuilder builder {};
+        using namespace ::tui::attributes;
+        AttributedStringBuilder builder {};
         builder << SetColor(ColorPrompt) << "Command" << ResetStyle() << ": ";
         return builder.str();
     }
@@ -136,7 +136,7 @@ public:
         } else if (command == "back") {
             pop();
         } else {
-            using namespace tui::style;
+            using namespace tui::attributes;
             _message_view->stream() << EnableStyle(AttrUnderline) << "Unknown command: " << ResetStyle() << command;
         }
     }

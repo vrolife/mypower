@@ -40,23 +40,23 @@ public:
         refresh();
     }
 
-    StyleString tui_title(size_t width)
+    AttributedString tui_title(size_t width)
     {
-        return StyleString::layout("Process", width, 1, '=', LayoutAlign::Center);
+        return AttributedString::layout("Process", width, 1, '=', LayoutAlign::Center);
     }
 
-    StyleString tui_item(size_t index, size_t width)
+    AttributedString tui_item(size_t index, size_t width)
     {
         using namespace std::string_literals;
-        using namespace tui::style;
+        using namespace tui::attributes;
 
         if (index >= this->size()) {
-            return StyleString {};
+            return AttributedString {};
         }
 
         auto& data = this->at(index);
 
-        StyleStringBuilder builder {};
+        AttributedStringBuilder builder {};
         builder << data.first << '\t' << data.second;
 
         return builder.release();

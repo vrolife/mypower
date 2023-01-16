@@ -25,7 +25,7 @@ SOFTWARE.
 
 namespace tui {
 
-StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, int decoration, LayoutAlign align)
+AttributedString AttributedString::layout(AttributedString& string, size_t width, size_t gap, int decoration, LayoutAlign align)
 {
     auto new_string = string;
     if (new_string._string.size() >= width) {
@@ -34,18 +34,18 @@ StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, i
     if (new_string._bytecode.empty()) {
         auto size = new_string._string.size();
         if (size <= UINT8_MAX) {
-            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString8));
+            new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString8));
             new_string._bytecode.push_back(static_cast<uint8_t>(size));
         } else if (size <= UINT16_MAX) {
-            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString16));
+            new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString16));
             auto buf = static_cast<uint16_t>(size);
             new_string._bytecode.append(reinterpret_cast<char*>(&buf), 2);
         } else if (size <= UINT32_MAX) {
-            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString32));
+            new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString32));
             auto buf = static_cast<uint32_t>(size);
             new_string._bytecode.append(reinterpret_cast<char*>(&buf), 4);
         } else if (size <= UINT64_MAX) {
-            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeString64));
+            new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString64));
             auto buf = static_cast<uint64_t>(size);
             new_string._bytecode.append(reinterpret_cast<char*>(&buf), 8);
         }
@@ -56,13 +56,13 @@ StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, i
         if (space > 0) {
             auto repeat = static_cast<uint16_t>(std::min(space, gap));
             space -= repeat;
-            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             new_string._bytecode.push_back(' ');
             new_string._bytecode.append(reinterpret_cast<char*>(&repeat), 2);
         }
         if (space > 0) {
             auto repeat = static_cast<uint16_t>(space);
-            new_string._bytecode.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             new_string._bytecode.push_back(decoration);
             new_string._bytecode.append(reinterpret_cast<char*>(&repeat), 2);
         }
@@ -75,7 +75,7 @@ StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, i
         if (space <= (gap * 2)) { // no decoration
             auto repeat = static_cast<uint16_t>(gap / 2);
 
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(' ');
             bc.append(reinterpret_cast<char*>(&repeat), 2);
 
@@ -83,32 +83,32 @@ StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, i
 
             repeat = space - repeat;
 
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(' ');
             bc.append(reinterpret_cast<char*>(&repeat), 2);
         } else {
             auto repeat = static_cast<uint16_t>(space / 2 - gap);
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(decoration);
             bc.append(reinterpret_cast<char*>(&repeat), 2);
             space -= repeat;
 
             repeat = gap;
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(' ');
             bc.append(reinterpret_cast<char*>(&repeat), 2);
             space -= repeat;
 
             bc.append(new_string._bytecode.begin(), new_string._bytecode.end());
 
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(' ');
             bc.append(reinterpret_cast<char*>(&repeat), 2);
             space -= repeat;
 
             repeat = static_cast<uint16_t>(space);
 
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(decoration);
             bc.append(reinterpret_cast<char*>(&repeat), 2);
         }
@@ -122,13 +122,13 @@ StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, i
         if (space > 0) {
             auto repeat = static_cast<uint16_t>(space - gap);
             space -= repeat;
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(decoration);
             bc.append(reinterpret_cast<char*>(&repeat), 2);
         }
         if (space > 0) {
             auto repeat = static_cast<uint16_t>(space);
-            bc.push_back(static_cast<uint8_t>(StyleString::BytecodeRepeat16));
+            bc.push_back(static_cast<uint8_t>(AttributedString::BytecodeRepeat16));
             bc.push_back(' ');
             bc.append(reinterpret_cast<char*>(&repeat), 2);
         }
@@ -140,7 +140,7 @@ StyleString StyleString::layout(StyleString& string, size_t width, size_t gap, i
     return new_string;
 }
 
-void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& string, bool reverse)
+void AttributedStringBuilder::print_attributed_string(WINDOW* win, const AttributedString& string, bool reverse)
 {
     if (string._bytecode.empty()) {
         if (reverse) {
@@ -160,12 +160,12 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
         wattrset(win, default_attrs);
 
         while (code < endc) {
-            switch (static_cast<StyleString::Bytecode>(code[0])) {
-            case StyleString::Bytecode::BytecodeNop:
+            switch (static_cast<AttributedString::Bytecode>(code[0])) {
+            case AttributedString::Bytecode::BytecodeNop:
                 str += 1;
                 code += 1;
                 break;
-            case StyleString::Bytecode::BytecodeString8: {
+            case AttributedString::Bytecode::BytecodeString8: {
                 auto size = code[1];
                 auto space = size;
                 waddnstr(win, str, space);
@@ -173,7 +173,7 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
                 code += 2;
                 break;
             }
-            case StyleString::Bytecode::BytecodeString16: {
+            case AttributedString::Bytecode::BytecodeString16: {
                 uint16_t size = 0;
                 memcpy(&size, &code[1], 2);
                 auto space = size;
@@ -182,7 +182,7 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
                 code += 3;
                 break;
             }
-            case StyleString::Bytecode::BytecodeString32: {
+            case AttributedString::Bytecode::BytecodeString32: {
                 uint32_t size = 0;
                 memcpy(&size, &code[1], 4);
                 auto space = size;
@@ -191,7 +191,7 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
                 code += 5;
                 break;
             }
-            case StyleString::Bytecode::BytecodeString64: {
+            case AttributedString::Bytecode::BytecodeString64: {
                 uint64_t size = 0;
                 memcpy(&size, &code[1], 8);
                 auto space = size;
@@ -200,7 +200,7 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
                 code += 7;
                 break;
             }
-            case StyleString::BytecodeAttrOn: {
+            case AttributedString::BytecodeAttrOn: {
                 NCURSES_CH_T attrs = 0;
                 memcpy(&attrs, &code[1], sizeof(attrs));
                 if (reverse && (attrs & A_REVERSE)) {
@@ -211,7 +211,7 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
                 code += (1 + sizeof(attrs));
                 break;
             }
-            case StyleString::BytecodeAttrOff: {
+            case AttributedString::BytecodeAttrOff: {
                 NCURSES_CH_T attrs = 0;
                 memcpy(&attrs, &code[1], sizeof(attrs));
                 if (reverse && (attrs & A_REVERSE)) {
@@ -222,7 +222,7 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
                 code += (1 + sizeof(attrs));
                 break;
             }
-            case StyleString::BytecodeAttrSet: {
+            case AttributedString::BytecodeAttrSet: {
                 NCURSES_CH_T attrs = 0;
                 memcpy(&attrs, &code[1], sizeof(attrs));
                 if (reverse) {
@@ -232,12 +232,12 @@ void StyleStringBuilder::print_style_string(WINDOW* win, const StyleString& stri
                 code += (1 + sizeof(attrs));
                 break;
             }
-            case StyleString::BytecodeAttrClear: {
+            case AttributedString::BytecodeAttrClear: {
                 wattrset(win, default_attrs);
                 code += 1;
                 break;
             }
-            case StyleString::BytecodeRepeat16: {
+            case AttributedString::BytecodeRepeat16: {
                 auto ch = code[1];
                 uint16_t count = 0;
                 memcpy(&count, &code[2], sizeof(count));
@@ -272,13 +272,13 @@ TUI::TUI(int flags)
 
     if (has_colors() and flags & TUIFlagColor) {
         start_color();
-        init_pair(style::ColorNormal, COLOR_WHITE, -1);
-        init_pair(style::ColorHighlight, COLOR_BLACK, COLOR_WHITE);
-        init_pair(style::ColorWarning, COLOR_YELLOW, -1);
-        init_pair(style::ColorError, COLOR_RED, -1);
-        init_pair(style::ColorInfo, COLOR_BLUE, -1);
-        init_pair(style::ColorPrompt, COLOR_GREEN, -1);
-        init_pair(style::ColorImportant, COLOR_WHITE, COLOR_RED);
+        init_pair(attributes::ColorNormal, COLOR_WHITE, -1);
+        init_pair(attributes::ColorHighlight, COLOR_BLACK, COLOR_WHITE);
+        init_pair(attributes::ColorWarning, COLOR_YELLOW, -1);
+        init_pair(attributes::ColorError, COLOR_RED, -1);
+        init_pair(attributes::ColorInfo, COLOR_BLUE, -1);
+        init_pair(attributes::ColorPrompt, COLOR_GREEN, -1);
+        init_pair(attributes::ColorImportant, COLOR_WHITE, COLOR_RED);
     }
 
     _win_title = newwin(1, 1, 0, 0);
@@ -476,7 +476,7 @@ void TUI::draw()
     if (_provider) {
         werase(_win_title);
         wmove(_win_title, 0, 0);
-        StyleStringBuilder::print_style_string(_win_title, _title_string, !_editing);
+        AttributedStringBuilder::print_attributed_string(_win_title, _title_string, !_editing);
         wnoutrefresh(_win_title);
 
         size_t stage_width, stage_height;
@@ -496,7 +496,7 @@ void TUI::draw()
         if (_editing) {
             auto prompt = _handler->tui_prompt(width);
 
-            StyleStringBuilder::print_style_string(_win_editor, prompt);
+            AttributedStringBuilder::print_attributed_string(_win_editor, prompt);
 
             wprintw(_win_editor, "%s ", _editor.buffer().c_str());
             wmove(_win_editor, 0, _editor.cursor() + prompt.size());
@@ -551,7 +551,7 @@ void TUI::invalidate()
     int idx = 0;
     for (auto& cache : _content_cached_items) {
         wmove(_win_canvas, y, 0);
-        StyleStringBuilder::print_style_string(_win_canvas, cache._conetnt,
+        AttributedStringBuilder::print_attributed_string(_win_canvas, cache._conetnt,
             ((idx + _content_cached_index) == _content_selected_index) and not _editing);
         idx += 1;
         y += cache._height;
@@ -563,9 +563,9 @@ HistoryView::HistoryView()
     set_flags(ContentProviderFlagAutoScrollTail);
 }
 
-StyleString HistoryView::tui_title(size_t width)
+AttributedString HistoryView::tui_title(size_t width)
 {
-    return StyleString::layout("History", width, 1, '=', LayoutAlign::Center);
+    return AttributedString::layout("History", width, 1, '=', LayoutAlign::Center);
 }
 
 void HistoryView::history_key(int key, Editor& editor)

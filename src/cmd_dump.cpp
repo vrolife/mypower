@@ -23,6 +23,36 @@ using namespace std::string_literals;
 
 namespace mypower {
 
+template<typename T>
+struct DataNumber {
+    VMAddress _addr{0};
+    T _value;
+
+    VMAddress address() {
+        return _addr;
+    }
+
+    void value(std::ostringstream& oss) {
+        oss << _value;
+    }
+};
+
+template<typename T>
+class DataView : public VisibleContainer<T> {
+public:
+    AttributedString tui_title(size_t width) override
+    {
+        return AttributedString::layout("Data", width, 1, '-', LayoutAlign::Center);
+    }
+
+    AttributedString tui_item(size_t index, size_t width) override
+    {
+        using namespace tui::attributes;
+
+        return {};
+    }
+};
+
 class Dump : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
