@@ -541,6 +541,8 @@ public:
     using C::end;
     using C::reserve;
     using C::size;
+    using C::data;
+    using C::resize;
 
     void clear()
     {

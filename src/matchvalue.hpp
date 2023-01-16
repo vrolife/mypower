@@ -32,10 +32,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     F(I32)                     \
     F(I64)
 
-#define MATCH_TYPES(F)     \
+#define MATCH_TYPES_NUMBER(F) \
     MATCH_TYPES_INTEGER(F) \
     F(FLOAT)               \
     F(DOUBLE)              \
+
+#define MATCH_TYPES(F)     \
+    MATCH_TYPES_NUMBER(F)  \
     F(BYTES)
 
 namespace mypower {
@@ -64,7 +67,8 @@ enum MatchTypeBits {
     MatchTypeBitFLOAT = 256,
     MatchTypeBitDOUBLE = 512,
     MatchTypeBitBYTES = 1024,
-    MatchTypeBitIntegerMask = 0xFF
+    MatchTypeBitIntegerMask = 0xFF,
+    MatchTypeBitNumberMask = 0x3FF
 };
 
 enum class MatchType {
