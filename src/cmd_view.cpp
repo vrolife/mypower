@@ -35,8 +35,12 @@ inline std::string to_hex(const void* data, size_t len)
     return os.str();
 }
 
+struct RefreshInterface {
+    virtual void refresh(std::shared_ptr<Process>& process) = 0;
+};
+
 template<typename T>
-class DataViewContinuous : public VisibleContainer<T> {
+class DataViewContinuous : public VisibleContainer<T>, public RefreshInterface {
     uintptr_t _address{};
 
 public:
@@ -62,6 +66,10 @@ public:
 
         return builder.release();
     }
+
+    void refresh(std::shared_ptr<Process>& process) override {
+        process->read(VMAddress{_address}, this->data(), this->size() * sizeof(T));
+    }
 };
 
 template<typename T>
@@ -74,7 +82,7 @@ auto create_number_view(std::shared_ptr<Process>& process, uintptr_t addr, uintp
     }
 
     view->resize(count);
-    process->read(VMAddress{addr}, view->data(), size_in_bytes);
+    view->refresh(process);
 
     return view;
 }
@@ -93,7 +101,7 @@ auto create_bytes_view(std::shared_ptr<Process>& process, uintptr_t addr, uintpt
     auto rows = count / row_size;
 
     view->resize(rows);
-    process->read(VMAddress{addr}, reinterpret_cast<void*>(view->data()), rows * row_size);
+    view->refresh(process);
 
     return view;
 }
@@ -117,6 +125,7 @@ public:
         _options.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
         _options.add_options()("HEX", po::bool_switch()->default_value(false), "hexdump");
         _options.add_options()("end,e", po::bool_switch()->default_value(false), "count is end address");
+        _options.add_options()("refresh,r", po::bool_switch()->default_value(false), "refresh current view");
         _options.add_options()("limit_in_bytes", po::value<size_t>()->default_value(1024*1024), "Limit");
         _options.add_options()("address,a", po::value<std::string>(), "start address");
         _options.add_options()("count,c", po::value<std::string>(), "count");
@@ -126,7 +135,7 @@ public:
 
     bool match(const std::string& command) override
     {
-        return command == "dump";
+        return command == "view";
     }
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override
@@ -165,6 +174,33 @@ public:
             return;
         }
 
+        if (not _app._process) {
+            message()
+                << SetColor(ColorError)
+                << "Error:"
+                << ResetStyle()
+                << " Invalid target process, attach to target using the 'attach' command";
+            show();
+            return;
+        }
+
+        if (opts["refresh"].as<bool>()) {
+            auto view = dynamic_cast<RefreshInterface*>(_app._current_view.get());
+            if (view) {
+                view->refresh(_app._process);
+                _app._current_view->tui_notify_changed();
+            } else {
+                message()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " Current view is not a data view";
+                show();
+                return;
+            }
+            return;
+        }
+
         if (address_expr.empty() or count_expr.empty()) {
             message() << "Usage: " << command << " [options] address count\n"
                                     << _options;
@@ -188,16 +224,6 @@ public:
                 << "Error:"
                 << ResetStyle()
                 << " Multiple data types specified";
-            show();
-            return;
-        }
-
-        if (not _app._process) {
-            message()
-                << SetColor(ColorError)
-                << "Error:"
-                << ResetStyle()
-                << " Invalid target process, attach to target using the 'attach' command";
             show();
             return;
         }
