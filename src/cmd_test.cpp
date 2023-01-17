@@ -54,6 +54,7 @@ class TestView : public VisibleContainer<ssize_t> {
         if (not _thread.joinable()) {
             return;
         }
+        _auto_increase = false;
         _mutex.unlock();
         _thread.join();
     }
@@ -69,6 +70,10 @@ public:
         emplace_back(0);
         emplace_back(0);
         emplace_back(0);
+    }
+
+    ~TestView() override {
+        stop();
     }
 
     AttributedString tui_title(size_t width) override
@@ -155,15 +160,15 @@ public:
     }
 };
 
-class Test : public Command {
+class CommandTest : public Command {
     std::shared_ptr<TestView> _test_view;
 
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    Test(Application& app)
-        : Command(app)
+    CommandTest(Application& app)
+        : Command(app, "test")
     {
         _options.add_options()("help", "show help message");
         _options.add_options()("value", po::value<ssize_t>(), "set value");
@@ -198,6 +203,6 @@ public:
     }
 };
 
-static RegisterCommand<Test> _Test {};
+static RegisterCommand<CommandTest> _Test {};
 
 } // namespace mypower

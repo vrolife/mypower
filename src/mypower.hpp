@@ -59,9 +59,12 @@ struct SessionView : public ContentProvider {
 };
 
 struct Command {
+    std::string _name;
     Application& _app;
-    Command(Application& app)
+    
+    Command(Application& app, const std::string& name)
         : _app(app)
+        , _name(name)
     {
     }
 

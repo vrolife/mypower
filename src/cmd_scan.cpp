@@ -487,13 +487,13 @@ bool filter(
     return true;
 }
 
-class Scan : public Command {
+class CommandScan : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    Scan(Application& app)
-        : Command(app)
+    CommandScan(Application& app)
+        : Command(app, "scan")
     {
         _options.add_options()("help", "show help message");
         _options.add_options()("step,s", po::value<size_t>(), "step size");
@@ -583,13 +583,13 @@ public:
     }
 };
 
-class Filter : public Command {
+class CommandFilter : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    Filter(Application& app)
-        : Command(app)
+    CommandFilter(Application& app)
+        : Command(app, "filter")
     {
         _options.add_options()("help", "show help message");
         _options.add_options()("expr,f", po::value<std::string>(), "filter expression");
@@ -657,8 +657,8 @@ public:
     }
 };
 
-static RegisterCommand<Scan> _Scan {};
+static RegisterCommand<CommandScan> _Scan {};
 
-static RegisterCommand<Filter> _Filter {};
+static RegisterCommand<CommandFilter> _Filter {};
 
 } // namespace mypower

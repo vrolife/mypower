@@ -23,6 +23,10 @@ SOFTWARE.
 */
 #include "tui.hpp"
 
+#ifndef NCURSES_CTRL
+#define NCURSES_CTRL(c) ((c) & 037)
+#endif
+
 namespace tui {
 
 AttributedString AttributedString::layout(AttributedString& string, size_t width, size_t gap, int decoration, LayoutAlign align)
@@ -266,7 +270,8 @@ TUI::TUI(int flags)
 {
     initscr();
     use_default_colors();
-    cbreak();
+    // cbreak();
+    raw();
     noecho();
     set_escdelay(100);
 
@@ -355,15 +360,27 @@ int TUI::run()
         wtimeout(_win_editor, _provider ? _provider->tui_timeout() : -1);
         draw();
         key = wgetch(_win_editor);
-        if (key == ERR) {
-            continue;
-        }
 
-        // ESC
-        if (key == 27) {
-            _command_mode = !_command_mode;
-            mode_switched();
-            continue;
+        switch(key) {
+            case ERR:
+                continue;
+            case 27: // ESC
+                _command_mode = !_command_mode;
+                mode_switched();
+                continue;
+            case NCURSES_CTRL('d'):
+                if (_editor.buffer().empty()) {
+                    return 0;
+                }
+                continue;
+            case NCURSES_CTRL('c'): {
+                if (not _command_mode) {
+                    _command_mode = true;
+                    mode_switched();
+                }
+                _editor.reset();
+                continue;
+            }
         }
 
         if (_command_mode) {

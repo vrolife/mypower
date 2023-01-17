@@ -91,13 +91,13 @@ public:
     }
 };
 
-class ListProcess : public Command {
+class CommandProcess : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    ListProcess(Application& app)
-        : Command(app)
+    CommandProcess(Application& app)
+        : Command(app, "proc")
     {
         _options.add_options()("help", "show help message");
         _options.add_options()("filter,f", po::value<std::string>(), "regex filter");
@@ -147,6 +147,6 @@ public:
     }
 };
 
-static RegisterCommand<ListProcess> _ListProcess {};
+static RegisterCommand<CommandProcess> _ListProcess {};
 
 } // namespace mypower

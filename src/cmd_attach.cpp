@@ -23,13 +23,13 @@ using namespace std::string_literals;
 
 namespace mypower {
 
-class Attach : public Command {
+class CommandAttach : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    Attach(Application& app)
-        : Command(app)
+    CommandAttach(Application& app)
+        : Command(app, "atttach")
     {
         _options.add_options()("help", "show help message");
         _options.add_options()("pid,p", po::value<pid_t>(), "target process pid");
@@ -85,6 +85,6 @@ public:
     }
 };
 
-static RegisterCommand<Attach> _Attach {};
+static RegisterCommand<CommandAttach> _Attach {};
 
 } // namespace mypower

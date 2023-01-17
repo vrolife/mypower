@@ -74,6 +74,12 @@ public:
         show(_message_view);
     }
 
+    ~App() {
+        for (auto& cmd : _commands) {
+            cmd.reset();
+        }
+    }
+
     AttributedString tui_prompt(size_t width) override
     {
         using namespace ::tui::attributes;

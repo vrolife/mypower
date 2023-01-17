@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
 
     auto process = std::make_shared<Process>(target_pid);
 
-    Session session { process, cache_size };
+    CommandSession session { process, cache_size };
 
     session.scan(ScanComparator<ComparatorMask<uintptr_t>> { { address, mask }, step });
 

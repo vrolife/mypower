@@ -22,13 +22,13 @@ namespace po = boost::program_options;
 
 namespace mypower {
 
-class Session : public Command {
+class CommandSession : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    Session(Application& app)
-        : Command(app)
+    CommandSession(Application& app)
+        : Command(app, "session")
     {
         _options.add_options()("help", "show help message");
         _options.add_options()("session,s", po::value<std::string>(), "session index/name");
@@ -122,6 +122,6 @@ public:
     }
 };
 
-static RegisterCommand<Session> _Session {};
+static RegisterCommand<CommandSession> _Session {};
 
 } // namespace mypower

@@ -150,13 +150,13 @@ auto create_bytes_view(std::shared_ptr<Process>& process, uintptr_t addr, uintpt
     return view;
 }
 
-class ViewCmd : public Command {
+class CommandView : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    ViewCmd(Application& app)
-        : Command(app)
+    CommandView(Application& app)
+        : Command(app, "view")
     {
         _options.add_options()("help", "show help message");
         _options.add_options()("I64,q", po::bool_switch()->default_value(false), "64 bit integer");
@@ -302,6 +302,6 @@ case MatchTypeBit##t: \
     }
 };
 
-static RegisterCommand<ViewCmd> _Dump {};
+static RegisterCommand<CommandView> _Dump {};
 
 } // namespace mypower
