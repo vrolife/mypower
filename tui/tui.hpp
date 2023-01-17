@@ -317,10 +317,11 @@ enum ContentProviderFlags {
 struct ContentProvider {
     virtual ~ContentProvider() = default;
 
-    virtual void tui_show(size_t width) {};
+    virtual bool tui_show(size_t width) { return false; };
     virtual void tui_hide() {};
     virtual bool tui_key(int key) { return false; };
     virtual std::string tui_select(size_t index) { return {}; }
+    virtual int tui_timeout() { return -1; }
 
     virtual AttributedString tui_title(size_t width) = 0;
     virtual size_t tui_count() = 0;
@@ -441,7 +442,7 @@ enum TUIFlags {
 
 class TUI {
     bool _exit { false };
-    bool _editing { true };
+    bool _command_mode { true };
 
     WINDOW* _win_title;
     WINDOW* _win_stage;
@@ -499,7 +500,10 @@ public:
 
             int width, height;
             getmaxyx(_win_canvas, height, width);
-            _provider->tui_show(width);
+            if (_provider->tui_show(width)) {
+                _command_mode = false;
+                mode_switched();
+            }
 
             getmaxyx(_win_title, height, width);
             _title_string = _provider->tui_title(width);
@@ -516,6 +520,8 @@ public:
     int run();
 
 private:
+    void mode_switched();
+
     void list_mode_key(int key);
 
     void resize();

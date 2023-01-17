@@ -15,6 +15,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include <random>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include <boost/program_options.hpp>
 
@@ -26,12 +29,40 @@ using namespace std::string_literals;
 namespace mypower {
 
 class TestView : public VisibleContainer<ssize_t> {
+    bool _auto_increase{false};
+    std::thread _thread{};
+    std::timed_mutex _mutex{};
+
+    static void thread_func(TestView* self) {
+        while(self->_auto_increase) {
+            self->_mutex.try_lock();
+            self->_mutex.try_lock_for(std::chrono::seconds{1});
+            self->at(0) += 1;
+        }
+    }
+
+    void start() {
+        if (_thread.joinable()) {
+            return;
+        }
+        _thread = std::thread{&TestView::thread_func, this};
+    }
+
+    void stop() {
+        if (not _thread.joinable()) {
+            return;
+        }
+        _mutex.unlock();
+        _thread.join();
+    }
+
 public:
     TestView()
     {
         std::random_device rd {};
         std::uniform_int_distribution<ssize_t> dist(0, 1000);
         emplace_back(dist(rd));
+        emplace_back(0);
         emplace_back(0);
         emplace_back(0);
         emplace_back(0);
@@ -61,6 +92,12 @@ public:
             return AttributedString { "+5" };
         case 4:
             return AttributedString { "-5" };
+        case 5:
+            if (_auto_increase) {
+                return AttributedString { "Auto increase enabled" };
+            } else {
+                return AttributedString { "Auto increase disabled" };
+            }
         }
         return {};
     }
@@ -89,8 +126,26 @@ public:
             at(0) -= 5;
             tui_notify_changed();
             break;
+        case 5: {
+                _auto_increase = !_auto_increase;
+                if (_auto_increase) {
+                    start();
+                } else {
+                    stop();
+                }
+                break;
+            }
         }
         return {};
+    }
+
+    bool tui_show(size_t width) override {
+        return true;
+    }
+
+    int tui_timeout() override {
+        this->tui_notify_changed();
+        return 1000;
     }
 };
 

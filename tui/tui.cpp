@@ -327,6 +327,24 @@ void TUI::update_title()
     }
 }
 
+void TUI::mode_switched() {
+    if (not _command_mode) {
+        _content_selected_index = _content_cached_index;
+        // find first visible item
+        size_t lines_above = 0;
+        size_t hidden_items = 0;
+        for (size_t idx = 0; idx < _content_cached_items.size() and lines_above < _content_scroll_lines; ++idx) {
+            hidden_items += 1;
+            lines_above += _content_cached_items.at(idx)._height;
+        }
+        _content_selected_index += hidden_items;
+        if (_content_selected_index >= (_provider->tui_count() - 1)) {
+            _content_selected_index = _provider->tui_count() - 1;
+        }
+    }
+    invalidate();
+}
+
 int TUI::run()
 {
     int key;
@@ -334,31 +352,21 @@ int TUI::run()
     _exit = false;
 
     while (not _exit) {
+        wtimeout(_win_editor, _provider ? _provider->tui_timeout() : -1);
         draw();
         key = wgetch(_win_editor);
-
-        // ESC
-        if (key == 27) {
-            _editing = !_editing;
-            if (not _editing) {
-                _content_selected_index = _content_cached_index;
-                // find first visible item
-                size_t lines_above = 0;
-                size_t hidden_items = 0;
-                for (size_t idx = 0; idx < _content_cached_items.size() and lines_above < _content_scroll_lines; ++idx) {
-                    hidden_items += 1;
-                    lines_above += _content_cached_items.at(idx)._height;
-                }
-                _content_selected_index += hidden_items;
-                if (_content_selected_index >= (_provider->tui_count() - 1)) {
-                    _content_selected_index = _provider->tui_count() - 1;
-                }
-            }
-            invalidate();
+        if (key == ERR) {
             continue;
         }
 
-        if (_editing) {
+        // ESC
+        if (key == 27) {
+            _command_mode = !_command_mode;
+            mode_switched();
+            continue;
+        }
+
+        if (_command_mode) {
             if (_handler == nullptr or not _handler->tui_key(key)) {
                 if (key == KEY_ENTER or key == '\n') {
                     if (_handler) {
@@ -442,7 +450,7 @@ void TUI::list_mode_key(int key)
             if (_handler && _provider) {
                 _handler->tui_run(command);
             }
-            _editing = true;
+            _command_mode = true;
             invalidate();
         }
         break;
@@ -476,7 +484,7 @@ void TUI::draw()
     if (_provider) {
         werase(_win_title);
         wmove(_win_title, 0, 0);
-        AttributedStringBuilder::print_attributed_string(_win_title, _title_string, !_editing);
+        AttributedStringBuilder::print_attributed_string(_win_title, _title_string, !_command_mode);
         wnoutrefresh(_win_title);
 
         size_t stage_width, stage_height;
@@ -493,7 +501,7 @@ void TUI::draw()
 
         werase(_win_editor);
 
-        if (_editing) {
+        if (_command_mode) {
             auto prompt = _handler->tui_prompt(width);
 
             AttributedStringBuilder::print_attributed_string(_win_editor, prompt);
@@ -501,7 +509,7 @@ void TUI::draw()
             wprintw(_win_editor, "%s ", _editor.buffer().c_str());
             wmove(_win_editor, 0, _editor.cursor() + prompt.size());
         } else {
-            waddstr(_win_editor, "Press ESC enter edit mode");
+            waddstr(_win_editor, "Press ESC enter command mode");
         }
         wnoutrefresh(_win_editor);
     }
@@ -522,7 +530,7 @@ void TUI::invalidate()
     _content_cached_items.reserve(content_height);
     _content_cached_lines = 0;
 
-    auto show_tail = (_provider->_flags & ContentProviderFlagAutoScrollTail) && _editing;
+    auto show_tail = (_provider->_flags & ContentProviderFlagAutoScrollTail) && _command_mode;
 
     if (count <= content_height) {
         _content_cached_index = 0;
@@ -552,7 +560,7 @@ void TUI::invalidate()
     for (auto& cache : _content_cached_items) {
         wmove(_win_canvas, y, 0);
         AttributedStringBuilder::print_attributed_string(_win_canvas, cache._conetnt,
-            ((idx + _content_cached_index) == _content_selected_index) and not _editing);
+            ((idx + _content_cached_index) == _content_selected_index) and not _command_mode);
         idx += 1;
         y += cache._height;
     }

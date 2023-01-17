@@ -43,6 +43,7 @@ template<typename T>
 class DataViewContinuous : public VisibleContainer<T>, public RefreshInterface {
     uintptr_t _address{};
     char _mode{'d'};
+    int _auto_refresh{-1};
     std::shared_ptr<Process>& _process;
 
 public:
@@ -93,8 +94,20 @@ public:
                 this->refresh();
                 this->tui_notify_changed();
                 return true;
+            case 'a':
+                _auto_refresh = 1000;
+                return true;
+            case 'A':
+                _auto_refresh = -1;
+                return true;
         }
         return false;
+    }
+
+    int tui_timeout() override {
+        this->refresh();
+        this->tui_notify_changed();
+        return _auto_refresh;
     }
 };
 
