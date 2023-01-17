@@ -515,6 +515,10 @@ public:
         return command == "scan";
     }
 
+    void show_short_help() override {
+        message() << "scan\t\t\tScan data";
+    }
+
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
         PROGRAM_OPTIONS();
@@ -530,6 +534,10 @@ public:
                 config._name = opts["name"].as<std::string>();
             } else {
                 config._name = config._expr;
+            }
+
+            if (opts.count("step")) {
+                config._step = opts["step"].as<size_t>();
             }
 
             config._type_bits |= opts["I8"].as<bool>() ? MatchTypeBitI8 : 0;
@@ -599,6 +607,10 @@ public:
     bool match(const std::string& command) override
     {
         return command == "filter";
+    }
+    
+    void show_short_help() override {
+        message() << "filter\t\t\tFilter matched data";
     }
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override

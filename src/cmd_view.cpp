@@ -26,15 +26,6 @@ using namespace std::string_literals;
 
 namespace mypower {
 
-inline std::string to_hex(const void* data, size_t len)
-{
-    std::ostringstream os;
-    for (size_t i = 0; i < len; ++i) {
-        os << std::setw(2) << std::setfill('0') << std::hex << (int)reinterpret_cast<const uint8_t*>(data)[i] << " ";
-    }
-    return os.str();
-}
-
 struct RefreshInterface {
     virtual void refresh() = 0;
 };
@@ -70,7 +61,17 @@ public:
                 builder << std::dec << data;
             }
         } else {
-            builder << to_hex(data.data(), data.size());
+            for (auto ch : data) {
+                builder << std::setw(2) << std::setfill('0') << std::hex << (int)ch << " ";
+            }
+            builder << " | ";
+            for (auto ch : data) {
+                if (ch >= 32 and ch <= 126) {
+                    builder << ch;
+                } else {
+                    builder << ".";
+                }
+            }
         }
 
         return builder.release();
@@ -167,7 +168,7 @@ public:
         _options.add_options()("U32,I", po::bool_switch()->default_value(false), "32 bit unsigned integer");
         _options.add_options()("U16,H", po::bool_switch()->default_value(false), "16 bit unsigned integer");
         _options.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
-        _options.add_options()("HEX", po::bool_switch()->default_value(false), "hexdump");
+        _options.add_options()("HEX,hex", po::bool_switch()->default_value(false), "hexdump");
         _options.add_options()("end,e", po::bool_switch()->default_value(false), "count is end address");
         _options.add_options()("refresh,r", po::bool_switch()->default_value(false), "refresh current view");
         _options.add_options()("limit_in_bytes", po::value<size_t>()->default_value(1024*1024), "Limit");

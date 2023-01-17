@@ -148,6 +148,12 @@ public:
         return false;
     }
 
+    void show_help() {
+        for (auto& cmd : _commands) {
+            cmd->show_short_help();
+        }
+    }
+
     void tui_run(const std::string& line) override
     {
         using namespace tui::attributes;
@@ -161,6 +167,8 @@ public:
             return;
         }
 
+        _history_view->push_back(line);
+
         auto [command, arguments] = dsl::parse_command(line);
 
         if (command == "exit") {
@@ -171,6 +179,8 @@ public:
 
         } else if (command == "history") {
             show(_history_view);
+        } else if (command == "help") {
+            show_help();
 
         } else if (command == "refresh-view") {
             if (_current_view) {
@@ -195,7 +205,6 @@ public:
             for (auto& cmd : _commands) {
                 if (cmd->match(command)) {
                     cmd->run(command, arguments);
-                    _history_view->push_back(line);
                     return;
                 }
             }

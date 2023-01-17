@@ -43,6 +43,10 @@ public:
         return command == "session";
     }
 
+    void show_short_help() override {
+        message() << "session\t\t\tList/Select/Delete session";
+    }
+
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
         PROGRAM_OPTIONS();

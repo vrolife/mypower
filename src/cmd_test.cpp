@@ -114,7 +114,7 @@ public:
         switch (index) {
         case 0: {
             std::ostringstream os;
-            os << "scan -i =" << at(0);
+            os << "scan -i -s 4 =" << at(0);
             return os.str();
         }
         case 1:
@@ -180,6 +180,10 @@ public:
     bool match(const std::string& command) override
     {
         return command == "test";
+    }
+
+    void show_short_help() override {
+        message() << "test\t\t\tShow test view";
     }
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override

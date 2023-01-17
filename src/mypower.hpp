@@ -73,6 +73,8 @@ struct Command {
 
     virtual bool match(const std::string& command) = 0;
 
+    virtual void show_short_help() { }
+
     MessageStream message();
 
     template <typename T>

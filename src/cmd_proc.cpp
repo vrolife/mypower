@@ -108,6 +108,12 @@ public:
     {
         return command == "ps" or command == "findps" or command == "findpsex";
     }
+    
+    void show_short_help() override {
+        message() << "ps\t\t\tList all processes";
+        message() << "findps\t\t\tList processes contains substring";
+        message() << "findpsex\t\tList processes matches regex";
+    }
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
