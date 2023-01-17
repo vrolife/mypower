@@ -36,15 +36,19 @@ inline std::string to_hex(const void* data, size_t len)
 }
 
 struct RefreshInterface {
-    virtual void refresh(std::shared_ptr<Process>& process) = 0;
+    virtual void refresh() = 0;
 };
 
 template<typename T>
 class DataViewContinuous : public VisibleContainer<T>, public RefreshInterface {
     uintptr_t _address{};
+    char _mode{'d'};
+    std::shared_ptr<Process>& _process;
 
 public:
-    DataViewContinuous(uintptr_t address) : _address(address) { }
+    DataViewContinuous(std::shared_ptr<Process>& process, uintptr_t address)
+    : _process(process), _address(address)
+    { }
 
     AttributedString tui_title(size_t width) override
     {
@@ -59,7 +63,11 @@ public:
         builder << "0x" << std::hex << (index * sizeof(T) + _address) << ": ";
         
         if constexpr (std::is_floating_point<T>::value or std::is_integral<T>::value) {
-            builder << std::dec << data;
+            if (_mode == 'h') {
+                builder << "0x" << std::hex << data;
+            } else {
+                builder << std::dec << data;
+            }
         } else {
             builder << to_hex(data.data(), data.size());
         }
@@ -67,22 +75,41 @@ public:
         return builder.release();
     }
 
-    void refresh(std::shared_ptr<Process>& process) override {
-        process->read(VMAddress{_address}, this->data(), this->size() * sizeof(T));
+    void refresh() override {
+        _process->read(VMAddress{_address}, this->data(), this->size() * sizeof(T));
+    }
+
+    bool tui_key(int key) override {
+        switch(key) {
+            case 'h':
+                _mode = 'h';
+                this->tui_notify_changed();
+                return true;
+            case 'd':
+                _mode = 'd';
+                this->tui_notify_changed();
+                return true;
+            case 'r':
+                this->refresh();
+                this->tui_notify_changed();
+                return true;
+        }
+        return false;
     }
 };
 
 template<typename T>
 static
 auto create_number_view(std::shared_ptr<Process>& process, uintptr_t addr, uintptr_t count, size_t limit_in_bytes) {
-    auto view = std::make_shared<DataViewContinuous<T>>(addr);
+    auto view = std::make_shared<DataViewContinuous<T>>(process, addr);
+
     size_t size_in_bytes = count * sizeof(T);
     if (size_in_bytes > limit_in_bytes) {
         throw std::out_of_range("Data size limited to "s + std::to_string(limit_in_bytes) + " Bytes");
     }
 
     view->resize(count);
-    view->refresh(process);
+    view->refresh();
 
     return view;
 }
@@ -92,7 +119,7 @@ auto create_bytes_view(std::shared_ptr<Process>& process, uintptr_t addr, uintpt
     constexpr size_t row_size = 16;
     typedef std::array<uint8_t, row_size> T;
 
-    auto view = std::make_shared<DataViewContinuous<T>>(addr);
+    auto view = std::make_shared<DataViewContinuous<T>>(process, addr);
     
     if (count > limit_in_bytes) {
         throw std::out_of_range("Data size limited to "s + std::to_string(limit_in_bytes) + " Bytes");
@@ -101,7 +128,7 @@ auto create_bytes_view(std::shared_ptr<Process>& process, uintptr_t addr, uintpt
     auto rows = count / row_size;
 
     view->resize(rows);
-    view->refresh(process);
+    view->refresh();
 
     return view;
 }
@@ -181,23 +208,6 @@ public:
                 << ResetStyle()
                 << " Invalid target process, attach to target using the 'attach' command";
             show();
-            return;
-        }
-
-        if (opts["refresh"].as<bool>()) {
-            auto view = dynamic_cast<RefreshInterface*>(_app._current_view.get());
-            if (view) {
-                view->refresh(_app._process);
-                _app._current_view->tui_notify_changed();
-            } else {
-                message()
-                    << SetColor(ColorError)
-                    << "Error:"
-                    << ResetStyle()
-                    << " Current view is not a data view";
-                show();
-                return;
-            }
             return;
         }
 

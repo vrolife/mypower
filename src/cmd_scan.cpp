@@ -75,6 +75,7 @@ public:
 class SessionViewImpl : public SessionView {
     std::string _name;
     std::string _expr;
+    char _mode{'d'};
 
 public:
     Session _session;
@@ -120,18 +121,21 @@ public:
         builder << std::hex << SetColor(ColorInfo) << "0x" << access->address().get() << " ";
         builder.stream([&](std::ostringstream& oss) { access->type(oss); });
         builder << ResetStyle();
-        builder << ":  ";
+        builder << ": ";
 
-        builder << "Dec " << std::dec << SetColor(ColorPrompt);
-        builder.stream([&](std::ostringstream& oss) { access->value(oss); });
-        builder << ResetStyle();
+        if (_mode == 'd') {
+            builder << "Dec " << std::dec << SetColor(ColorPrompt);
+            builder.stream([&](std::ostringstream& oss) { access->value(oss); });
+            builder << ResetStyle();
+        }
 
-        builder << "  Hex "
-                << SetColor(ColorPrompt)
-                << std::hex << "0x";
-
-        builder.stream([&](std::ostringstream& oss) { access->value(oss); });
-        builder << ResetStyle();
+        if (_mode == 'h') {
+            builder << "Hex "
+                    << SetColor(ColorPrompt)
+                    << std::hex << "0x";
+            builder.stream([&](std::ostringstream& oss) { access->value(oss); });
+            builder << ResetStyle();
+        }
 
         builder << "  Region ";
 
@@ -150,6 +154,24 @@ public:
     size_t tui_count() override
     {
         return _session.size();
+    }
+
+    bool tui_key(int key) override {
+        switch(key) {
+            case 'h':
+                _mode = 'h';
+                this->tui_notify_changed();
+                return true;
+            case 'd':
+                _mode = 'd';
+                this->tui_notify_changed();
+                return true;
+            case 'r':
+                this->_session.update_matches();
+                this->tui_notify_changed();
+                return true;
+        }
+        return false;
     }
 };
 
@@ -465,16 +487,6 @@ bool filter(
     return true;
 }
 
-bool update(
-    std::shared_ptr<MessageView>& message_view,
-    std::shared_ptr<SessionView>& session_view)
-{
-    RefreshView refresh(session_view);
-    auto* view = dynamic_cast<SessionViewImpl*>(session_view.get());
-    view->_session.update_matches();
-    return true;
-}
-
 class Scan : public Command {
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
@@ -645,45 +657,8 @@ public:
     }
 };
 
-class Update : public Command {
-    po::options_description _options { "Allowed options" };
-    po::positional_options_description _posiginal {};
-
-public:
-    Update(Application& app)
-        : Command(app)
-    {
-        _options.add_options()("help", "show help message");
-        _options.add_options()("expr,f", po::value<std::string>(), "filter expression");
-        _posiginal.add("expr", 1);
-    }
-
-    bool match(const std::string& command) override
-    {
-        return command == "filter";
-    }
-
-    void run(const std::string& command, const std::vector<std::string>& arguments) override
-    {
-        using namespace tui::attributes;
-
-        if (_app._current_session_view == nullptr) {
-            message()
-                << SetColor(ColorError)
-                << "Error:"
-                << ResetStyle()
-                << " No avaliable session, create a session using the 'scan' command";
-            return;
-        }
-
-        update(_app._message_view, _app._current_session_view);
-    }
-};
-
 static RegisterCommand<Scan> _Scan {};
 
 static RegisterCommand<Filter> _Filter {};
-
-static RegisterCommand<Update> _Update {};
 
 } // namespace mypower
