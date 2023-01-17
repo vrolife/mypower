@@ -104,6 +104,10 @@ public:
         return false;
     }
 
+    bool tui_show(size_t width) override {
+        return true;
+    }
+
     int tui_timeout() override {
         this->refresh();
         this->tui_notify_changed();

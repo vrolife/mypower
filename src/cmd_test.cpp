@@ -33,6 +33,8 @@ class TestView : public VisibleContainer<ssize_t> {
     std::thread _thread{};
     std::timed_mutex _mutex{};
 
+    std::vector<uint32_t> _test_values{};
+
     static void thread_func(TestView* self) {
         while(self->_auto_increase) {
             self->_mutex.try_lock();
@@ -140,6 +142,10 @@ public:
     }
 
     bool tui_show(size_t width) override {
+        if (_test_values.empty()) {
+            _test_values.resize(100);
+            std::fill(_test_values.begin(), _test_values.end(), 0x12341234);
+        }
         return true;
     }
 

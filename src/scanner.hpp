@@ -217,7 +217,9 @@ public:
 
         MATCH_TYPES(__ACCESS);
 #undef __ACCESS
-        throw std::out_of_range("index out of range");
+        std::ostringstream oss{};
+        oss << "index out of range: index: " << index << " size: " << size();
+        throw std::out_of_range(oss.str());
     }
 
 #define __SIZE(t)                   \
