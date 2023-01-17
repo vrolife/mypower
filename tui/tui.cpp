@@ -268,7 +268,7 @@ TUI::TUI(int flags)
     use_default_colors();
     cbreak();
     noecho();
-    set_escdelay(0);
+    set_escdelay(100);
 
     if (has_colors() and flags & TUIFlagColor) {
         start_color();
@@ -534,12 +534,20 @@ void TUI::invalidate()
 
     if (count <= content_height) {
         _content_cached_index = 0;
-    } else if (show_tail) {
-        _content_cached_index = count - content_height;
-        _content_scroll_lines = 0;
+    } else {
+        if (show_tail) {
+            _content_cached_index = count - content_height;
+            _content_scroll_lines = 0;
+        }
     }
 
-    for (auto idx = 0; idx < std::min(content_height, count); ++idx) {
+    size_t cache_max = std::min(content_height, count);
+
+    if ((_content_cached_index + cache_max) >= count) {
+        _content_cached_index = count - cache_max;
+    }
+
+    for (auto idx = 0; idx < cache_max; ++idx) {
         detail::ItemCache item {};
         item._conetnt = _provider->tui_item(idx + _content_cached_index, screen_width);
         item._height = item._conetnt.calc_height_slow();
