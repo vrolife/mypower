@@ -12,15 +12,16 @@ set(HOST_PROJECT_OPTIONS --prefix=${HOST_PROJECT_INSTALL_DIR})
 
 if(ANDROID_PLATFORM)
     string(REPLACE - "" ANDROID_PLATFORM_ ${ANDROID_PLATFORM})
+    set(ANDROID_TARGET aarch64-linux-${ANDROID_PLATFORM_})
     set(TARGET_PROJECT_OPTIONS
         ${TARGET_PROJECT_OPTIONS}
-        --host=aarch64-linux-${ANDROID_PLATFORM_}
+        --host=${ANDROID_TARGET}
         AR=${CMAKE_AR}
         RANLIB=${CMAKE_RANLIB}
         STRIP=${CMAKE_STRIP}
         CC=${CMAKE_C_COMPILER}
         CXX=${CMAKE_CXX_COMPILER}
-        "CFLAGS=--target=aarch64-linux-${ANDROID_PLATFORM_} -I${TARGET_PROJECT_INSTALL_DIR}/include"
+        "CFLAGS=--target=${ANDROID_TARGET} -I${TARGET_PROJECT_INSTALL_DIR}/include"
         "LDFLAGS=-L${TARGET_PROJECT_INSTALL_DIR}/lib"
     )
 endif()
@@ -28,7 +29,8 @@ endif()
 include(flex.cmake)
 include(ncurses.cmake)
 include(boost.cmake)
+include(zstd.cmake)
 
 add_subdirectory(sljit)
 
-add_boost_libs(program_options VERSION 1.81.0)
+add_boost_libs(program_options json VERSION 1.81.0)
