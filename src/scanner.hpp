@@ -151,10 +151,9 @@ public:
     {
     }
 
-    bool update_memory_region()
+    void update_memory_region()
     {
-        _memory_regions = VMRegion::snapshot(_process->pid());
-        return not _memory_regions.empty();
+        _memory_regions = _process->get_memory_regions();
     }
 
     template <typename T>

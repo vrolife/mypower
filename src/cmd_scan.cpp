@@ -26,31 +26,6 @@ using namespace std::string_literals;
 
 namespace mypower {
 
-class SuspendProcess {
-    std::shared_ptr<Process> _process;
-    bool _same_user;
-
-public:
-    SuspendProcess(std::shared_ptr<Process>& process, bool same_user = false, bool enable = true)
-        : _process(process)
-        , _same_user(same_user)
-    {
-        if (not enable) {
-            _process = nullptr;
-        }
-        if (_process) {
-            _process->suspend(same_user);
-        }
-    }
-
-    ~SuspendProcess()
-    {
-        if (_process) {
-            _process->resume(_same_user);
-        }
-    }
-};
-
 class RefreshView {
     std::shared_ptr<ContentProvider> _view;
 
@@ -238,7 +213,7 @@ std::shared_ptr<SessionView> scan(
 {
     auto view = std::make_shared<SessionViewImpl>(process, config._name, config._expr);
 
-    // SuspendProcess suspend{process, config._suspend_same_user, process->pid() != ::getpid()};
+    AutoSuspendResume suspend{process, config._suspend_same_user, process->pid() != ::getpid()};
 
     view->_session.update_memory_region();
 

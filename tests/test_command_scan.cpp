@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     auto target = std::make_shared<int32_t>(24831);
 
     std::shared_ptr<MessageView> message_view = std::make_shared<MessageView>();
-    std::shared_ptr<Process> process = std::make_shared<Process>(::getpid());
+    std::shared_ptr<Process> process = std::make_shared<ProcessLinux>(::getpid());
     ScanArgs config{};
     config._expr = "=[24830,24835]";
     config._step = 1;

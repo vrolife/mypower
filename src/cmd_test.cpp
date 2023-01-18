@@ -188,7 +188,6 @@ public:
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
-
         PROGRAM_OPTIONS();
 
         try {

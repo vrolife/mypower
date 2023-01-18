@@ -23,13 +23,60 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <unistd.h>
 
 #include <algorithm>
+#include <regex>
 
 #include "process.hpp"
 
 namespace mypower {
 namespace fs = std::filesystem;
 
-ssize_t Process::read(VMAddress address, void* buffer, size_t size)
+std::string read_process_file(pid_t pid, const char* filename, size_t buffer_size = PATH_MAX)
+{
+    auto cmdline = std::filesystem::path("/proc") / std::to_string(pid) / filename;
+    std::string buffer {};
+    buffer.resize(buffer_size);
+
+    int fd = ::open(cmdline.c_str(), O_RDONLY);
+    if (fd == -1) {
+        return {};
+    }
+
+    auto size = ::read(fd, buffer.data(), buffer.size());
+    if (size < 0) {
+        ::close(fd);
+        return {};
+    }
+    ::close(fd);
+
+    buffer.resize(size);
+    return buffer;
+}
+
+std::string read_process_comm(pid_t pid)
+{
+    auto buffer = read_process_file(pid, "comm");
+
+    auto iter = std::find_if(buffer.begin(), buffer.end(), [&](char c) {
+        return c == '\n' or c == '\0';
+    });
+
+    buffer.resize(iter - buffer.begin());
+    return buffer;
+}
+
+std::string read_process_cmdline(pid_t pid)
+{
+    auto buffer = read_process_file(pid, "cmdline");
+
+    for (auto& ch : buffer) {
+        if (ch == '\0') {
+            ch = ' ';
+        }
+    }
+    return buffer;
+}
+
+ssize_t ProcessLinux::read(VMAddress address, void* buffer, size_t size)
 {
     struct iovec local {
         .iov_base = buffer, .iov_len = size
@@ -40,7 +87,7 @@ ssize_t Process::read(VMAddress address, void* buffer, size_t size)
     return process_vm_readv(_pid, &local, 1, &remote, 1, 0);
 }
 
-ssize_t Process::write(VMAddress address, const void* buffer, size_t size)
+ssize_t ProcessLinux::write(VMAddress address, const void* buffer, size_t size)
 {
     struct iovec local {
         .iov_base = const_cast<void*>(buffer), .iov_len = size
@@ -51,12 +98,12 @@ ssize_t Process::write(VMAddress address, const void* buffer, size_t size)
     return process_vm_readv(_pid, &local, 1, &remote, 1, 0);
 }
 
-ssize_t Process::read(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count)
+ssize_t ProcessLinux::read(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count)
 {
     return process_vm_readv(_pid, local, local_count, remote, remote_count, 0);
 }
 
-ssize_t Process::write(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count)
+ssize_t ProcessLinux::write(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count)
 {
     return process_vm_writev(_pid, local, local_count, remote, remote_count, 0);
 }
@@ -114,7 +161,7 @@ static void kill_same_user(pid_t pid, int signal)
     }
 }
 
-bool Process::suspend(bool same_user)
+bool ProcessLinux::suspend(bool same_user)
 {
     if (same_user) {
         kill_same_user(_pid, SIGSTOP);
@@ -122,7 +169,7 @@ bool Process::suspend(bool same_user)
     // TODO suspend user's all process
     return ::kill(_pid, SIGSTOP) == 0;
 }
-bool Process::resume(bool same_user)
+bool ProcessLinux::resume(bool same_user)
 {
     if (same_user) {
         kill_same_user(_pid, SIGCONT);
@@ -130,50 +177,29 @@ bool Process::resume(bool same_user)
     return ::kill(_pid, SIGCONT) == 0;
 }
 
-std::string read_process_file(pid_t pid, const char* filename, size_t buffer_size = PATH_MAX)
-{
-    auto cmdline = std::filesystem::path("/proc") / std::to_string(pid) / filename;
-    std::string buffer {};
-    buffer.resize(buffer_size);
+char get_process_status(pid_t pid) {
+    std::string status = read_process_file(pid, "status", 0x4096);
+    std::regex exp(R"(([^:]+):\s*([^\n]+))");
 
-    int fd = ::open(cmdline.c_str(), O_RDONLY);
-    if (fd == -1) {
-        return {};
-    }
+    auto begin = std::sregex_iterator(status.begin(), status.end(), exp);
+    auto end = std::sregex_iterator();
 
-    auto size = ::read(fd, buffer.data(), buffer.size());
-    if (size < 0) {
-        ::close(fd);
-        return {};
-    }
-    ::close(fd);
+    for (auto iter = begin; iter != end; ++iter) {
+        auto& match = *iter;
 
-    buffer.resize(size);
-    return buffer;
-}
-
-std::string read_process_comm(pid_t pid)
-{
-    auto buffer = read_process_file(pid, "comm");
-
-    auto iter = std::find_if(buffer.begin(), buffer.end(), [&](char c) {
-        return c == '\n' or c == '\0';
-    });
-
-    buffer.resize(iter - buffer.begin());
-    return buffer;
-}
-
-std::string read_process_cmdline(pid_t pid)
-{
-    auto buffer = read_process_file(pid, "cmdline");
-
-    for (auto& ch : buffer) {
-        if (ch == '\0') {
-            ch = ' ';
+        if (match[1] == "State") {
+            return match[2].str().at(0);
         }
     }
-    return buffer;
+    return 0;
+}
+
+ProcessState ProcessLinux::get_process_state() {
+    return static_cast<ProcessState>(get_process_status(_pid));
+}
+
+VMRegion::ListType ProcessLinux::get_memory_regions() {
+    return VMRegion::snapshot(pid());
 }
 
 } // namespace mypower

@@ -46,8 +46,7 @@ public:
         message() << "Attach process " << pid;
         show();
 
-        _app._session_views.clear();
-        _app._process = std::make_shared<Process>(pid);
+        _app._process = std::make_shared<ProcessLinux>(pid);
     }
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override

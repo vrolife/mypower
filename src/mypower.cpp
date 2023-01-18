@@ -68,7 +68,7 @@ public:
         _history_view = std::make_shared<HistoryView>();
 
         if (pid != -1) {
-            _process = std::make_shared<Process>(pid);
+            _process = std::make_shared<ProcessLinux>(pid);
         }
 
         show(_message_view);

@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
     data.target = 0x109;
     data.target2 = 0x109;
 
-    auto process = std::make_shared<Process>(getpid());
+    auto process = std::shared_ptr<Process>(new ProcessLinux{getpid()});
 
     auto session = std::make_shared<Session>(process, 4096);
     session->update_memory_region();

@@ -23,24 +23,88 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace mypower {
 
-class Process {
+enum ProcessState {
+    Running = 'R',
+    Sleeping = 'S',
+    DiskSleep = 'D',
+    Zombie = 'Z',
+    Stopped = 'T',
+    TracingStop = 't',
+    DeadX = 'X',
+    Deadx = 'x',
+    Wakekill = 'K',
+    Waking = 'W',
+    Parked = 'P',
+};
+
+struct Process {
+    virtual pid_t pid() const = 0;
+
+    virtual ssize_t read(VMAddress address, void* buffer, size_t size) = 0;
+    virtual ssize_t write(VMAddress address, const void* buffer, size_t size) = 0;
+    virtual ssize_t read(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count) = 0;
+    virtual ssize_t write(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count) = 0;
+
+    virtual bool suspend(bool same_user = false) = 0;
+    virtual bool resume(bool same_user = false) = 0;
+
+    virtual ProcessState get_process_state() = 0;
+
+    virtual VMRegion::ListType get_memory_regions() = 0;
+};
+
+class ProcessLinux : public Process {
     pid_t _pid;
 
 public:
-    Process(pid_t pid)
+    ProcessLinux(pid_t pid)
         : _pid(pid)
     {
     }
 
-    pid_t pid() const { return _pid; }
+    pid_t pid() const override { return _pid; }
 
-    ssize_t read(VMAddress address, void* buffer, size_t size);
-    ssize_t write(VMAddress address, const void* buffer, size_t size);
-    ssize_t read(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count);
-    ssize_t write(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count);
+    ssize_t read(VMAddress address, void* buffer, size_t size) override;
+    ssize_t write(VMAddress address, const void* buffer, size_t size) override;
+    ssize_t read(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count) override;
+    ssize_t write(struct iovec* local, size_t local_count, struct iovec* remote, size_t remote_count) override;
 
-    bool suspend(bool same_user = false);
-    bool resume(bool same_user = false);
+    bool suspend(bool same_user = false) override;
+    bool resume(bool same_user = false) override;
+
+    ProcessState get_process_state() override;
+
+    VMRegion::ListType get_memory_regions() override;
+};
+
+class AutoSuspendResume {
+    std::shared_ptr<Process> _process;
+    bool _same_user;
+
+public:
+    AutoSuspendResume(std::shared_ptr<Process>& process, bool same_user = false, bool enable = true)
+        : _process(process)
+        , _same_user(same_user)
+    {
+        if (_process->get_process_state() != Running) {
+            enable = false;
+        }
+
+        if (not enable) {
+            _process = nullptr;
+        }
+
+        if (_process) {
+            _process->suspend(same_user);
+        }
+    }
+
+    ~AutoSuspendResume()
+    {
+        if (_process) {
+            _process->resume(_same_user);
+        }
+    }
 };
 
 std::string read_process_comm(pid_t);
