@@ -189,7 +189,12 @@ public:
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
         PROGRAM_OPTIONS();
-
+        if (opts.count("help")) {
+            message() << "Usage: " << command << " value\n"
+                      << _options;
+            show();
+            return;
+        }
         try {
             if (opts.count("value")) {
                 _test_view->at(0) = opts["value"].as<ssize_t>();

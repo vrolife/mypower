@@ -72,7 +72,7 @@ public:
             return;
         }
 
-        if (pid == -1) {
+        if (pid == -1 or opts.count("help")) {
             message()
                 << "Usage: attach [options] pid\n"
                 << _options;

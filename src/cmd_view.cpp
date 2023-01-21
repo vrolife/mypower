@@ -229,7 +229,7 @@ public:
             return;
         }
 
-        if (address_expr.empty() or count_expr.empty()) {
+        if (address_expr.empty() or count_expr.empty() or opts.count("help")) {
             message() << "Usage: " << command << " [options] address count\n"
                                     << _options;
             show();

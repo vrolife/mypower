@@ -51,6 +51,13 @@ public:
     {
         PROGRAM_OPTIONS();
 
+        if (opts.count("help")) {
+            message() << "Usage: " << command << " [options] name/idx\n"
+                      << _options;
+            show();
+            return;
+        }
+
         if (_app._session_views.empty()) {
             message()
                 << SetColor(ColorError)

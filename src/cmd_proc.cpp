@@ -138,7 +138,7 @@ public:
             return;
         }
 
-        if (filter.empty()) {
+        if (filter.empty() or opts.count("help")) {
             message() << "Usage: " << command << " [options] regex\n"
                       << _options;
             show();

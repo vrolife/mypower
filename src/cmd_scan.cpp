@@ -605,7 +605,7 @@ public:
             return;
         }
 
-        if (config._expr.empty()) {
+        if (config._expr.empty() or opts.count("help")) {
             message() << "Usage: " << command << " [options] expression\n"
                       << _options;
             show();

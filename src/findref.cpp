@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    auto process = std::make_shared<Process>(target_pid);
+    auto process = std::make_shared<ProcessLinux>(target_pid);
 
     CommandSession session { process, cache_size };
 

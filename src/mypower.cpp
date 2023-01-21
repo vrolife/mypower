@@ -118,6 +118,7 @@ public:
             "ps", "findps", "findpsex",
             "test",
             "scan",
+            "snapshot",
             "filter",
             "update"
         };
