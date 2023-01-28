@@ -18,8 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <boost/program_options.hpp>
 
 #include "mathexpr.hpp"
-#include "scanner.hpp"
 #include "mypower.hpp"
+#include "scanner.hpp"
 
 namespace po = boost::program_options;
 using namespace std::string_literals;
@@ -30,30 +30,63 @@ struct RefreshInterface {
     virtual void refresh() = 0;
 };
 
-template<typename T>
+template <typename T>
 class DataViewContinuous : public VisibleContainer<T>, public RefreshInterface {
-    uintptr_t _address{};
-    char _mode{'d'};
-    int _auto_refresh{-1};
+    uintptr_t _address {};
+    char _mode { 'd' };
+    int _auto_refresh { -1 };
     std::shared_ptr<Process>& _process;
+
+    int _unity3d_class { -1 };
 
 public:
     DataViewContinuous(std::shared_ptr<Process>& process, uintptr_t address)
-    : _process(process), _address(address)
-    { }
+        : _process(process)
+        , _address(address)
+    {
+    }
 
     AttributedString tui_title(size_t width) override
     {
         return AttributedString::layout("Data", width, 1, '-', LayoutAlign::Center);
     }
 
+    void show_unity32_class_name(AttributedStringBuilder& builder, VMAddress vmaddr)
+    {
+        uintptr_t class_ptr { 0 };
+        uintptr_t name_ptr { 0 };
+
+        if (_process->read(vmaddr, &class_ptr, sizeof(uintptr_t)) != sizeof(uintptr_t)) {
+            return;
+        }
+
+        if (_process->read(VMAddress { class_ptr + 2 * sizeof(uintptr_t) }, &name_ptr, sizeof(uintptr_t)) != sizeof(uintptr_t)) {
+            return;
+        }
+
+        std::array<char, 32> buffer {};
+        if (_process->read(VMAddress { name_ptr }, buffer.data(), buffer.size()) == buffer.size()) {
+            builder << " | ";
+            for (auto ch : buffer) {
+                if (ch == 0) {
+                    break;
+                }
+                if (ch >= 32 and ch <= 126) {
+                    builder << ch;
+                } else {
+                    builder << ".";
+                }
+            }
+        }
+    }
+
     AttributedString tui_item(size_t index, size_t width) override
     {
         using namespace tui::attributes;
-        AttributedStringBuilder builder{};
+        AttributedStringBuilder builder {};
         auto& data = this->at(index);
         builder << "0x" << std::hex << (index * sizeof(T) + _address) << ": ";
-        
+
         if constexpr (std::is_floating_point<T>::value or std::is_integral<T>::value) {
             if (_mode == 'h') {
                 builder << "0x" << std::hex << data;
@@ -64,7 +97,7 @@ public:
             for (auto ch : data) {
                 builder << std::setw(2) << std::setfill('0') << std::hex << (int)ch << " ";
             }
-            builder << " | ";
+            builder << "| ";
             for (auto ch : data) {
                 if (ch >= 32 and ch <= 126) {
                     builder << ch;
@@ -74,51 +107,67 @@ public:
             }
         }
 
+        if constexpr (std::is_same<T, uintptr_t>::value) {
+            if (index == _unity3d_class and _mode == 'h' and sizeof(T) == sizeof(uintptr_t)) {
+                show_unity32_class_name(builder, VMAddress{data});
+            }
+        }
+
         return builder.release();
     }
 
-    void refresh() override {
-        _process->read(VMAddress{_address}, this->data(), this->size() * sizeof(T));
+    void refresh() override
+    {
+        _process->read(VMAddress { _address }, this->data(), this->size() * sizeof(T));
     }
 
-    bool tui_key(int key) override {
-        switch(key) {
-            case 'h':
-                _mode = 'h';
-                this->tui_notify_changed();
-                return true;
-            case 'd':
-                _mode = 'd';
-                this->tui_notify_changed();
-                return true;
-            case 'r':
-                this->refresh();
-                this->tui_notify_changed();
-                return true;
-            case 'a':
-                _auto_refresh = 1000;
-                return true;
-            case 'A':
-                _auto_refresh = -1;
-                return true;
+    bool tui_key(int key) override
+    {
+        switch (key) {
+        case 'h':
+            _mode = 'h';
+            this->tui_notify_changed();
+            return true;
+        case 'd':
+            _mode = 'd';
+            this->tui_notify_changed();
+            return true;
+        case 'r':
+            this->refresh();
+            this->tui_notify_changed();
+            return true;
+        case 'a':
+            _auto_refresh = 1000;
+            return true;
+        case 'A':
+            _auto_refresh = -1;
+            return true;
         }
         return false;
     }
 
-    bool tui_show(size_t width) override {
+    bool tui_show(size_t width) override
+    {
         return true;
     }
 
-    int tui_timeout() override {
+    int tui_timeout() override
+    {
         this->refresh();
         this->tui_notify_changed();
         return _auto_refresh;
     }
+
+    std::string tui_select(size_t index) override
+    {
+        _unity3d_class = index;
+        return {};
+    }
 };
 
-template<typename T>
-static
-auto create_number_view(std::shared_ptr<Process>& process, uintptr_t addr, uintptr_t count, size_t limit_in_bytes) {
+template <typename T>
+static auto create_number_view(std::shared_ptr<Process>& process, uintptr_t addr, uintptr_t count, size_t limit_in_bytes)
+{
     auto view = std::make_shared<DataViewContinuous<T>>(process, addr);
 
     size_t size_in_bytes = count * sizeof(T);
@@ -132,13 +181,13 @@ auto create_number_view(std::shared_ptr<Process>& process, uintptr_t addr, uintp
     return view;
 }
 
-static
-auto create_bytes_view(std::shared_ptr<Process>& process, uintptr_t addr, uintptr_t count, size_t limit_in_bytes) {
+static auto create_bytes_view(std::shared_ptr<Process>& process, uintptr_t addr, uintptr_t count, size_t limit_in_bytes)
+{
     constexpr size_t row_size = 16;
     typedef std::array<uint8_t, row_size> T;
 
     auto view = std::make_shared<DataViewContinuous<T>>(process, addr);
-    
+
     if (count > limit_in_bytes) {
         throw std::out_of_range("Data size limited to "s + std::to_string(limit_in_bytes) + " Bytes");
     }
@@ -171,7 +220,7 @@ public:
         _options.add_options()("HEX,hex", po::bool_switch()->default_value(false), "hexdump");
         _options.add_options()("end,e", po::bool_switch()->default_value(false), "count is end address");
         _options.add_options()("refresh,r", po::bool_switch()->default_value(false), "refresh current view");
-        _options.add_options()("limit_in_bytes", po::value<size_t>()->default_value(1024*1024), "Limit");
+        _options.add_options()("limit_in_bytes", po::value<size_t>()->default_value(1024 * 1024), "Limit");
         _options.add_options()("address,a", po::value<std::string>(), "start address");
         _options.add_options()("count,c", po::value<std::string>(), "count");
         _posiginal.add("address", 1);
@@ -187,11 +236,11 @@ public:
     {
         PROGRAM_OPTIONS();
 
-        std::string address_expr{};
-        std::string count_expr{};
-        uint32_t type{0};
+        std::string address_expr {};
+        std::string count_expr {};
+        uint32_t type { 0 };
         bool count_as_end(false);
-        size_t limit_in_bytes{0};
+        size_t limit_in_bytes { 0 };
 
         try {
             if (opts.count("address")) {
@@ -231,7 +280,7 @@ public:
 
         if (address_expr.empty() or count_expr.empty() or opts.count("help")) {
             message() << "Usage: " << command << " [options] address count\n"
-                                    << _options;
+                      << _options;
             show();
             return;
         }
@@ -246,7 +295,7 @@ public:
             return;
         }
 
-        if (__builtin_clz(type) == __builtin_clz(type-1)) {
+        if (__builtin_clz(type) == __builtin_clz(type - 1)) {
             message()
                 << SetColor(ColorError)
                 << "Error:"
@@ -283,23 +332,31 @@ public:
         if (count_as_end) {
             count_number_ast->_value -= addr_number_ast->_value;
         }
+        try {
+            std::shared_ptr<ContentProvider> view {};
 
-        std::shared_ptr<ContentProvider> view{};
+            switch (type) {
+#define __NUMBER_VIEW(t)                                                                                                      \
+    case MatchTypeBit##t:                                                                                                     \
+        view = create_number_view<type##t>(_app._process, addr_number_ast->_value, count_number_ast->_value, limit_in_bytes); \
+        break;
 
-        switch (type) {
-#define __NUMBER_VIEW(t) \
-case MatchTypeBit##t: \
-    view = create_number_view<type##t>(_app._process, addr_number_ast->_value, count_number_ast->_value, limit_in_bytes); \
-    break;
-
-            MATCH_TYPES_NUMBER(__NUMBER_VIEW)
+                MATCH_TYPES_NUMBER(__NUMBER_VIEW)
 #undef __NUMBER_VIEW
             case MatchTypeBitBYTES:
                 view = create_bytes_view(_app._process, addr_number_ast->_value, count_number_ast->_value, limit_in_bytes);
                 break;
-        }
+            }
 
-        show(view);
+            show(view);
+
+        } catch (const std::exception& e) {
+            message()
+                << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                << e.what();
+            show();
+            return;
+        }
     }
 };
 

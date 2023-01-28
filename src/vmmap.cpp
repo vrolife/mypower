@@ -36,32 +36,32 @@ std::vector<VMRegion> snapshot_impl(const std::string& s)
 
     auto end = std::sregex_iterator();
 
-    std::vector<VMRegion> fragments;
+    std::vector<VMRegion> regions;
 
     for (auto iter = begin; iter != end; ++iter) {
         auto& match = *iter;
 
-        VMRegion frag;
-        frag._begin = VMAddress { std::stoull(match[1], 0, 16) };
-        frag._end = VMAddress { std::stoull(match[2], 0, 16) };
+        VMRegion region;
+        region._begin = VMAddress { std::stoull(match[1], 0, 16) };
+        region._end = VMAddress { std::stoull(match[2], 0, 16) };
 
-        frag._prot = 0;
+        region._prot = 0;
 
         const std::string perms = match[3].str();
         if (perms[0] != '-')
-            frag._prot |= kRegionFlagRead;
+            region._prot |= kRegionFlagRead;
         if (perms[1] != '-')
-            frag._prot |= kRegionFlagWrite;
+            region._prot |= kRegionFlagWrite;
         if (perms[2] != '-')
-            frag._prot |= kRegionFlagExec;
+            region._prot |= kRegionFlagExec;
 
-        frag._shared = perms[3] == 's';
+        region._shared = perms[3] == 's';
 
-        frag._offset = std::stoull(match[4], 0, 16);
+        region._offset = std::stoull(match[4], 0, 16);
 
-        frag._major = std::stoull(match[5], 0, 16);
-        frag._minor = std::stoull(match[6], 0, 16);
-        frag._inode = std::stoull(match[7], 0, 10);
+        region._major = std::stoull(match[5], 0, 16);
+        region._minor = std::stoull(match[6], 0, 16);
+        region._inode = std::stoull(match[7], 0, 10);
 
         auto s = match[8].str();
 
@@ -69,19 +69,23 @@ std::vector<VMRegion> snapshot_impl(const std::string& s)
             if (s[0] == '/') {
                 auto w = s.find(' ');
                 if (w == std::string::npos) {
-                    frag._file = s;
+                    region._file = s;
                 } else {
-                    frag._file = s.substr(0, w);
-                    frag._desc = s.substr(w);
+                    region._file = s.substr(0, w);
+                    region._desc = s.substr(w);
                 }
             } else {
-                frag._desc = s;
+                region._desc = s;
             }
         }
 
-        fragments.emplace_back(std::move(frag));
+        if (regions.rbegin()->_end == region._begin and region._desc == "[anon:.bss]") {
+            region._file = regions.rbegin()->_file;
+        }
+
+        regions.emplace_back(std::move(region));
     }
-    return fragments;
+    return regions;
 }
 
 void VMRegion::string(std::ostringstream& oss)

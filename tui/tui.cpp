@@ -354,6 +354,10 @@ int TUI::run()
 {
     int key;
 
+    if (_handler) {
+        _handler->tui_start();
+    }
+
     _exit = false;
 
     while (not _exit) {

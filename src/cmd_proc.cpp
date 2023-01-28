@@ -75,7 +75,7 @@ public:
 
     void refresh()
     {
-        std::regex regexp { _filter, std::regex::grep };
+        std::regex regexp { _filter };
 
         clear();
         for_each_process([&](pid_t pid) {

@@ -26,6 +26,7 @@ struct ScanArgs {
     std::string _expr;
     size_t _step { 0 };
     uint32_t _type_bits { 0 };
+    bool _c_string { false };
     uint32_t _memofy_flags { kRegionFlagReadWrite };
     bool _suspend_same_user { false };
 };

@@ -53,7 +53,7 @@ typedef int64_t typeI64;
 typedef uint64_t typeU64;
 typedef float typeFLOAT;
 typedef double typeDOUBLE;
-typedef std::pair<uint8_t*, size_t> typeBYTES;
+typedef std::vector<uint8_t> typeBYTES;
 
 enum MatchTypeBits {
     MatchTypeBitU8 = 1,
@@ -170,6 +170,47 @@ public:
 };
 
 template <typename T>
+class AccessMatchBytes : public AccessMatch {
+    const T* _ptr;
+
+public:
+    AccessMatchBytes(const T* ptr)
+        : _ptr { ptr }
+    {
+    }
+
+    VMAddress address() override
+    {
+        return _ptr->_addr;
+    }
+
+    void value(std::ostringstream& oss) override
+    {
+        for (auto ch : _ptr->_value) {
+            oss << std::setw(2) << std::setfill('0') << std::hex << (int)ch << " ";
+        }
+        oss << "| ";
+        for (auto ch : _ptr->_value) {
+            if (ch >= 32 and ch <= 126) {
+                oss << ch;
+            } else {
+                oss << ".";
+            }
+        }
+    }
+
+    std::string type() override
+    {
+        return type_to_string(_ptr->_value);
+    }
+
+    void type(std::ostringstream& oss) override
+    {
+        oss << type_to_string(_ptr->_value);
+    }
+};
+
+template <typename T>
 class AccessMatchUnknown : public AccessMatch {
     const T* _ptr;
 
@@ -214,7 +255,7 @@ inline
 
 inline std::unique_ptr<AccessMatch> access_match(const MatchBYTES& match)
 {
-    return std::unique_ptr<AccessMatch> { new AccessMatchUnknown<MatchBYTES>(&match) };
+    return std::unique_ptr<AccessMatch> { new AccessMatchBytes<MatchBYTES>(&match) };
 }
 
 } // namespace mypower

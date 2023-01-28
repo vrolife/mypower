@@ -47,6 +47,7 @@ void Application::register_command(CommandInitializer init)
 class App : public CommandHandler, public std::enable_shared_from_this<App>, public Application {
 
     std::vector<std::unique_ptr<Command>> _commands {};
+    std::vector<std::string> _commands_to_execute{};
 
     std::shared_ptr<HistoryView> _history_view;
 
@@ -57,8 +58,8 @@ class App : public CommandHandler, public std::enable_shared_from_this<App>, pub
     po::positional_options_description _posiginal_dump {};
 
 public:
-    App(TUI& tui, pid_t pid)
-        : Application(tui)
+    App(TUI& tui, pid_t pid, std::vector<std::string>&& commands_to_execute)
+        : Application(tui), _commands_to_execute(std::move(commands_to_execute))
     {
         for (auto& init : _command_list) {
             _commands.emplace_back(init(*this));
@@ -155,6 +156,12 @@ public:
         }
     }
 
+    void tui_start() override {
+        for (auto& cmd : _commands_to_execute) {
+            tui_run(cmd);
+        }
+    }
+
     void tui_run(const std::string& line) override
     {
         using namespace tui::attributes;
@@ -225,9 +232,13 @@ __attribute__((weak)) int main(int argc, char* argv[])
 {
     pid_t target_pid = -1;
 
+    std::vector<std::string> commands{};
+
     try {
         po::options_description desc("Allowed options");
-        desc.add_options()("help", "show help message")("pid,p", po::value<pid_t>(), "target process pid");
+        desc.add_options()("help", "show help message");
+        desc.add_options()("pid,p", po::value<pid_t>(), "target process pid");
+        desc.add_options()("load", po::value<std::string>(), "load snapshot");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -241,13 +252,18 @@ __attribute__((weak)) int main(int argc, char* argv[])
         if (vm.count("pid")) {
             target_pid = vm["pid"].as<pid_t>();
         }
+
+        if (vm.count("load")) {
+            commands.push_back("snapshot --load "s + vm["load"].as<std::string>());
+        }
+
     } catch (std::exception& e) {
         std::cerr << "error: " << e.what() << std::endl;
         return 1;
     }
 
     TUI tui { TUIFlagColor };
-    tui.attach(std::make_shared<mypower::App>(tui, target_pid));
+    tui.attach(std::make_shared<mypower::App>(tui, target_pid, std::move(commands)));
     tui.run();
     return 0;
 }

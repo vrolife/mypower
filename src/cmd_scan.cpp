@@ -328,6 +328,10 @@ std::shared_ptr<SessionView> scan(
         if (config._type_bits & MatchTypeBitU64) {
             scan<uint64_t>(config, fast_mode, view->_session, comparator);
         }
+
+    } else if (config._c_string) {
+        view->_session.scan(ScanBytes{ typeBYTES{config._expr.begin(), config._expr.end()} });
+
     } else {
         message_view->stream()
             << attributes::SetColor(attributes::ColorError)
@@ -480,6 +484,7 @@ public:
         _options.add_options()("U32,I", po::bool_switch()->default_value(false), "32 bit unsigned integer");
         _options.add_options()("U16,H", po::bool_switch()->default_value(false), "16 bit unsigned integer");
         _options.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
+        _options.add_options()("cstr,c", po::bool_switch()->default_value(false), "C string");
         _options.add_options()("expr", po::value<std::string>(), "scan expression");
         _options.add_options()("name,n", po::value<std::string>(), "session name");
         _posiginal.add("expr", 1);
@@ -514,6 +519,8 @@ public:
             if (opts.count("step")) {
                 config._step = opts["step"].as<size_t>();
             }
+
+            config._c_string = opts["cstr"].as<bool>();
 
             config._type_bits |= opts["I8"].as<bool>() ? MatchTypeBitI8 : 0;
             config._type_bits |= opts["I16"].as<bool>() ? MatchTypeBitI16 : 0;
@@ -551,11 +558,16 @@ public:
 
         try {
             auto view = scan(_app._message_view, _app._process, config);
-            if (view) {
-                _app._session_views.emplace_back(view);
-                _app._current_session_view = view;
-                show(view);
+            if (not view or view->tui_count() == 0) {
+                message()
+                    << SetColor(ColorInfo)
+                    << "No matched result";
+                show();
+                return;
             }
+            _app._session_views.emplace_back(view);
+            _app._current_session_view = view;
+            show(view);
         } catch (const std::exception& e) {
             message()
                 << SetColor(ColorError) << "Error:" << ResetStyle() << " "

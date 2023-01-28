@@ -348,6 +348,7 @@ private:
 struct CommandHandler {
     virtual ~CommandHandler() = default;
     virtual AttributedString tui_prompt(size_t width) = 0;
+    virtual void tui_start() { };
     virtual void tui_run(const std::string& command) = 0;
     virtual bool tui_key(int key) { return false; }
 };

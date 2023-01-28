@@ -160,14 +160,14 @@ public:
     }
 };
 
-class CommandTest : public Command {
+class CommandRegion : public Command {
     std::shared_ptr<TestView> _test_view;
 
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    CommandTest(Application& app)
+    CommandRegion(Application& app)
         : Command(app, "test")
     {
         _options.add_options()("help", "show help message");
@@ -211,6 +211,6 @@ public:
     }
 };
 
-static RegisterCommand<CommandTest> _Test {};
+static RegisterCommand<CommandRegion> _Test {};
 
 } // namespace mypower

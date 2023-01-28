@@ -64,6 +64,16 @@ public:
     VMAddress& operator=(const VMAddress&) = default;
     VMAddress& operator=(VMAddress&&) noexcept = default;
 
+    bool operator==(const VMAddress& other) const
+    {
+        return _addr == other._addr;
+    }
+
+    bool operator!=(const VMAddress& other) const
+    {
+        return _addr != other._addr;
+    }
+
     bool operator>(const VMAddress& other) const
     {
         return _addr > other._addr;

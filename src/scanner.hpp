@@ -251,7 +251,7 @@ public:
     }
 
     template <typename T>
-    void scan(T&& scanner, uint32_t mask = kRegionFlagReadWrite)
+    void scan(T&& scanner, uint32_t mask = kRegionFlagRead)
     {
         for (auto& region : _memory_regions) {
             if ((region._prot & mask) != mask) {
@@ -525,7 +525,7 @@ public:
         assert(_step > 0);
     }
 
-    constexpr size_t step() const { return _step; }
+    size_t step() const { return _step; }
 
     template <typename Callback>
     void operator()(VMAddress addr_begin, void* buffer_begin, void* buffer_end, Callback&& callback)
@@ -541,6 +541,42 @@ public:
                 callback(MatchType(std::move(address), std::move(value)));
             }
         }
+    }
+};
+
+class ScanBytes {
+    typeBYTES _bytes{};
+
+public:
+    typedef MatchBYTES MatchType;
+
+    ScanBytes(const typeBYTES bytes)
+    : _bytes(bytes)
+    { }
+
+    size_t step() const { return _bytes.size(); }
+
+    template <typename Callback>
+    void operator()(VMAddress addr_begin, void* buffer_begin, void* buffer_end, Callback&& callback)
+    {
+        auto begin = reinterpret_cast<uint8_t*>(buffer_begin);
+        auto end = reinterpret_cast<uint8_t*>(buffer_end);
+        
+        if ((end - begin) < _bytes.size()) {
+            return;
+        }
+
+        uint8_t* ptr = begin;
+        
+        do {
+            ptr = (uint8_t*)memmem(ptr, end - ptr, _bytes.data(), _bytes.size());
+            if (ptr != nullptr) {
+                auto address = addr_begin + (ptr - begin);
+                callback(MatchBYTES(std::move(address), typeBYTES{_bytes}));
+                ptr += _bytes.size();
+            } 
+
+        } while(ptr != nullptr and ptr <= (end - _bytes.size()));
     }
 };
 

@@ -96,7 +96,11 @@ target_include_directories(scanner PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 file(GLOB COMMAND_SOURCES cmd_*.cpp)
 
 add_executable(mypower mypower.cpp ${COMMAND_SOURCES})
-target_link_libraries(mypower PRIVATE scanner tui dsl Boost::program_options Boost::json ZSTD::zstd)
+target_link_libraries(mypower PRIVATE scanner tui dsl Boost::program_options Boost::json)
+
+if (OpenMP_CXX_FOUND)
+    target_link_libraries(mypower PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 # add_executable(findref findref.cpp)
 # target_link_libraries(findref PRIVATE scanner Boost::program_options)

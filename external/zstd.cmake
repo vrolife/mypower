@@ -15,7 +15,7 @@ ExternalProject_Add(
         STRIP=${CMAKE_STRIP}
         CC=${CMAKE_C_COMPILER}
         CXX=${CMAKE_CXX_COMPILER}
-        CFLAGS=${ANDROID_TARGET}
+        CFLAGS=${ANDROID_TARGET_OPTS}
         make -C ${CMAKE_SOURCE_DIR}/.source/zstd/lib lib-release
     INSTALL_COMMAND 
         DESTDIR=${TARGET_PROJECT_INSTALL_DIR}
@@ -30,4 +30,11 @@ add_dependencies(zstd_zstd build_zstd)
 set_target_properties(zstd_zstd PROPERTIES 
     IMPORTED_LOCATION ${TARGET_PROJECT_INSTALL_DIR}/lib/libzstd.a
     INTERFACE_INCLUDE_DIRECTORIES ${TARGET_PROJECT_INSTALL_DIR}/include
+)
+
+# ninja-build bug need this target
+add_custom_target(build_zstd_bug
+    COMMAND ""
+    BYPRODUCTS ${TARGET_PROJECT_INSTALL_DIR}/lib/libzstd.a
+    DEPENDS build_zstd
 )
