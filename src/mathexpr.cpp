@@ -35,4 +35,14 @@ std::unique_ptr<ASTNode> parse(const std::string& str)
     return parser.parse(context, tokenizer);
 }
 
+uintptr_t parse_address_or_throw(const std::string& str)
+{
+    auto addr_ast = mathexpr::parse(str);
+    auto addr_number_ast = dynamic_cast<mathexpr::ASTNumber*>(addr_ast.get());
+    if (addr_ast == nullptr) {
+        throw std::out_of_range("Invalid address expression");
+    }
+    return addr_number_ast->_value;
+}
+
 } // namespace dsl

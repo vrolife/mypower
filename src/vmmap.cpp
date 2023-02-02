@@ -42,9 +42,8 @@ std::vector<VMRegion> snapshot_impl(const std::string& s)
         auto& match = *iter;
 
         VMRegion region;
-        region._begin = VMAddress { std::stoull(match[1], 0, 16) };
-        region._end = VMAddress { std::stoull(match[2], 0, 16) };
-
+        region._begin = VMAddress { std::stoul(match[1], 0, 16) };
+        region._end = VMAddress { std::stoul(match[2], 0, 16) };
         region._prot = 0;
 
         const std::string perms = match[3].str();
@@ -79,7 +78,7 @@ std::vector<VMRegion> snapshot_impl(const std::string& s)
             }
         }
 
-        if (regions.rbegin()->_end == region._begin and region._desc == "[anon:.bss]") {
+        if (not regions.empty() and regions.at(regions.size() -1)._end == region._begin and region._desc == "[anon:.bss]") {
             region._file = regions.rbegin()->_file;
         }
 

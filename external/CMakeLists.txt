@@ -12,8 +12,17 @@ set(HOST_PROJECT_OPTIONS --prefix=${HOST_PROJECT_INSTALL_DIR})
 
 if(ANDROID_PLATFORM)
     string(REPLACE - "" ANDROID_PLATFORM_ ${ANDROID_PLATFORM})
-    set(ANDROID_TARGET aarch64-linux-${ANDROID_PLATFORM_})
-    set(ANDROID_TARGET_OPTS --target=aarch64-linux-${ANDROID_PLATFORM_})
+
+    if (ANDROID_ABI STREQUAL arm64-v8a)
+        set(ANDROID_TARGET aarch64-linux-${ANDROID_PLATFORM_})
+        set(ANDROID_TARGET_OPTS --target=aarch64-linux-${ANDROID_PLATFORM_})
+    endif()
+    
+    if (ANDROID_ABI STREQUAL armeabi-v7a)
+        set(ANDROID_TARGET armv7-linux-${ANDROID_PLATFORM_})
+        set(ANDROID_TARGET_OPTS --target=armv7-linux-${ANDROID_PLATFORM_})
+    endif()
+
     set(TARGET_PROJECT_OPTIONS
         ${TARGET_PROJECT_OPTIONS}
         --host=${ANDROID_TARGET}

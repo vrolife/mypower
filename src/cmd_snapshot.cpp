@@ -154,6 +154,9 @@ public:
         for (auto* iovec_iter = remote; iovec_iter != end; ++iovec_iter) {
 
             auto addr = reinterpret_cast<uintptr_t>(iovec_iter->iov_base);
+            if ((UINTPTR_MAX - addr) < iovec_iter->iov_len) {
+                return {};
+            }
             auto addr_end = addr + iovec_iter->iov_len;
 
             auto pair = _address_index.lower_bound(addr);
@@ -191,9 +194,10 @@ public:
             }
 
             assert(addr >= region._begin.get() and addr_end <= region._end.get());
-
-            relocated.push_back({ reinterpret_cast<void*>(_memory.at(idx).data() + (addr - region._begin.get())), iovec_iter->iov_len });
-            assert(relocated.rbegin()->iov_base != nullptr);
+            
+            struct iovec vec{ reinterpret_cast<void*>(_memory.at(idx).data() + (addr - region._begin.get())), iovec_iter->iov_len };
+            relocated.push_back(vec);
+            assert(vec.iov_base != nullptr);
         }
         return relocated;
     }

@@ -50,7 +50,7 @@ public:
 class SessionViewImpl : public SessionView {
     std::string _name;
     std::string _expr;
-    char _mode{'d'};
+    char _mode{'h'};
 
 public:
     Session _session;
@@ -131,7 +131,7 @@ public:
         return _session.size();
     }
 
-    bool tui_key(int key) override {
+    bool tui_key(size_t index, int key) override {
         switch(key) {
             case 'h':
                 _mode = 'h';

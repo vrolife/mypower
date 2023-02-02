@@ -778,6 +778,8 @@ struct EXPR : public Symbol<std::unique_ptr<ASTNode>> {
 
 std::unique_ptr<ASTNode> parse(const std::string& str);
 
+uintptr_t parse_address_or_throw(const std::string& str);
+
 } // namespace mathexpr
 
 #endif

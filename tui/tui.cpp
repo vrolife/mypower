@@ -23,10 +23,6 @@ SOFTWARE.
 */
 #include "tui.hpp"
 
-#ifndef NCURSES_CTRL
-#define NCURSES_CTRL(c) ((c) & 037)
-#endif
-
 namespace tui {
 
 AttributedString AttributedString::layout(AttributedString& string, size_t width, size_t gap, int decoration, LayoutAlign align)
@@ -48,11 +44,14 @@ AttributedString AttributedString::layout(AttributedString& string, size_t width
             new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString32));
             auto buf = static_cast<uint32_t>(size);
             new_string._bytecode.append(reinterpret_cast<char*>(&buf), 4);
-        } else if (size <= UINT64_MAX) {
+        }
+#ifdef __LP64__
+        else if (size <= UINT64_MAX) {
             new_string._bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString64));
             auto buf = static_cast<uint64_t>(size);
             new_string._bytecode.append(reinterpret_cast<char*>(&buf), 8);
         }
+#endif
     }
     switch (align) {
     case LayoutAlign::Start: {
@@ -195,6 +194,7 @@ void AttributedStringBuilder::print_attributed_string(WINDOW* win, const Attribu
                 code += 5;
                 break;
             }
+#ifdef __LP64__
             case AttributedString::Bytecode::BytecodeString64: {
                 uint64_t size = 0;
                 memcpy(&size, &code[1], 8);
@@ -204,6 +204,7 @@ void AttributedStringBuilder::print_attributed_string(WINDOW* win, const Attribu
                 code += 7;
                 break;
             }
+#endif
             case AttributedString::BytecodeAttrOn: {
                 NCURSES_CH_T attrs = 0;
                 memcpy(&attrs, &code[1], sizeof(attrs));
@@ -372,12 +373,12 @@ int TUI::run()
                 _command_mode = !_command_mode;
                 mode_switched();
                 continue;
-            case NCURSES_CTRL('d'):
+            case TUI_KEY_CTRL('d'):
                 if (_editor.buffer().empty()) {
                     return 0;
                 }
                 continue;
-            case NCURSES_CTRL('c'): {
+            case TUI_KEY_CTRL('c'): {
                 if (not _command_mode) {
                     _command_mode = true;
                     mode_switched();
@@ -400,7 +401,7 @@ int TUI::run()
             }
 
         } else { // List mode
-            if (_provider == nullptr or not _provider->tui_key(key)) {
+            if (_provider == nullptr or not _provider->tui_key(_content_selected_index, key)) {
                 list_mode_key(key);
             }
         }

@@ -40,10 +40,10 @@ enum RegionFlag {
 };
 
 class VMAddress {
-    uint64_t _addr;
+    uintptr_t _addr;
 
 public:
-    explicit VMAddress(uint64_t addr)
+    explicit VMAddress(uintptr_t addr)
         : _addr(addr)
     {
     }
@@ -51,12 +51,12 @@ public:
     VMAddress(const VMAddress&) = default;
     VMAddress(VMAddress&&) noexcept = default;
 
-    uint64_t get() const
+    uintptr_t get() const
     {
         return _addr;
     }
 
-    explicit operator uint64_t()
+    explicit operator uintptr_t()
     {
         return _addr;
     }
@@ -144,7 +144,7 @@ struct VMRegion {
     std::string _file {};
     std::string _desc {};
 
-    uint64_t _offset { 0 };
+    uintptr_t _offset { 0 };
     int _major { 0 };
     int _minor { 0 };
     int _inode { 0 };
@@ -152,7 +152,7 @@ struct VMRegion {
 
     VMRegion() = default;
 
-    uint64_t size() const
+    uintptr_t size() const
     {
         return _end.get() - _begin.get();
     }

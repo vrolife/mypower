@@ -35,9 +35,10 @@ public:
     CommandU3D(Application& app)
         : Command(app, "region")
     {
-        // _options.add_options()("regex,r", po::bool_switch()->default_value(false), "regex filter");
-        // _options.add_options()("filter", po::value<std::string>(), "filter");
-        // _posiginal.add("filter", 1);
+        _options.add_options()("prefix", po::value<std::string>()->default_value({}), "prefix");
+        _options.add_options()("begin", po::value<std::string>(), "begin");
+        _options.add_options()("end", po::value<std::string>(), "end");
+        _posiginal.add("prefix", 1);
     }
 
     bool match(const std::string& command) override
@@ -75,7 +76,7 @@ public:
         return true;
     }
 
-    void find_u3d_object(VMAddress begin, VMAddress end, std::vector<std::pair<uintptr_t, std::string>>& results) {
+    void find_u3d_object(VMAddress begin, VMAddress end, std::vector<std::pair<uintptr_t, std::string>>& results, const std::string& prefix) {
         std::vector<uintptr_t> memory{};
         memory.resize((end.get() - begin.get()) / sizeof(uintptr_t));
         if (_app._process->read(begin, memory.data(), end.get() - begin.get()) == -1) {
@@ -92,7 +93,7 @@ public:
             #pragma omp for nowait schedule(static)
             for (auto addr : memory) {
                 if (read_u3d_class_name(VMAddress{addr}, buffer) and std::isalpha(buffer.at(0))
-                    and memcmp(buffer.data(), "Project8Game", 12) == 0
+                    and (prefix.empty() or memcmp(buffer.data(), prefix.c_str(), prefix.size()) == 0)
                 ) {
                     per_thread_results.emplace_back(addr, buffer);
                 }
@@ -105,13 +106,61 @@ public:
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
+        PROGRAM_OPTIONS();
+
+        std::string prefix {};
+
+        try {
+            if (opts.count("prefix")) {
+                prefix = opts["prefix"].as<std::string>();
+            }
+        } catch (const std::exception& e) {
+            message()
+                << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                << e.what();
+            show();
+            return;
+        }
+        if (opts.count("help")) {
+            message() << "Usage: " << command << " [options] prefix\n"
+                      << _options;
+            show();
+            return;
+        }
+
         std::vector<std::pair<uintptr_t, std::string>> results{};
 
-        for (auto& region : _app._process->get_memory_regions()) {
-            if ((region._prot & kRegionFlagWrite) == 0) {
-                continue;
+        if (opts.count("begin") and opts.count("end")) {
+            auto begin_ast = mathexpr::parse(opts["begin"].as<std::string>());
+            auto begin_number_ast = dynamic_cast<mathexpr::ASTNumber*>(begin_ast.get());
+            if (begin_ast == nullptr) {
+                message()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " Unsupported address expression";
+                show();
+                return;
             }
-            find_u3d_object(region._begin, region._end, results);
+            auto end_ast = mathexpr::parse(opts["end"].as<std::string>());
+            auto end_number_ast = dynamic_cast<mathexpr::ASTNumber*>(end_ast.get());
+            if (end_ast == nullptr) {
+                message()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " Unsupported address expression";
+                show();
+                return;
+            }
+            find_u3d_object(VMAddress{begin_number_ast->_value}, VMAddress{end_number_ast->_value}, results, prefix);
+        } else {
+            for (auto& region : _app._process->get_memory_regions()) {
+                if ((region._prot & kRegionFlagWrite) == 0) {
+                    continue;
+                }
+                find_u3d_object(region._begin, region._end, results, prefix);
+            }
         }
 
         for (auto pair : results) {

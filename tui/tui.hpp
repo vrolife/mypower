@@ -37,6 +37,8 @@ SOFTWARE.
 #include <tuple>
 #include <vector>
 
+#define TUI_KEY_CTRL(c) ((c) & 037)
+
 namespace tui {
 class AttributedStringBuilder;
 
@@ -135,7 +137,9 @@ class AttributedString {
         BytecodeString8 = 1,
         BytecodeString16 = 2,
         BytecodeString32 = 3,
+#ifdef __LP64__
         BytecodeString64 = 4,
+#endif
         BytecodeAttrOn = 5,
         BytecodeAttrOff = 6,
         BytecodeAttrSet = 7,
@@ -248,11 +252,14 @@ public:
             _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString32));
             auto buf = static_cast<uint32_t>(size);
             _bytecode.append(reinterpret_cast<char*>(&buf), 4);
-        } else if (size <= UINT64_MAX) {
+        }
+#ifdef __LP64__
+        else if (size <= UINT64_MAX) {
             _bytecode.push_back(static_cast<uint8_t>(AttributedString::BytecodeString64));
             auto buf = static_cast<uint64_t>(size);
             _bytecode.append(reinterpret_cast<char*>(&buf), 8);
         }
+#endif
     }
 
     AttributedStringBuilder& operator<<(::tui::attributes::SetStyle&& value)
@@ -319,7 +326,7 @@ struct ContentProvider {
 
     virtual bool tui_show(size_t width) { return false; };
     virtual void tui_hide() {};
-    virtual bool tui_key(int key) { return false; };
+    virtual bool tui_key(size_t index, int key) { return false; };
     virtual std::string tui_select(size_t index) { return {}; }
     virtual int tui_timeout() { return -1; }
 
@@ -408,6 +415,12 @@ public:
                 _cursor += 1;
             }
             break;
+        case TUI_KEY_CTRL('e'):
+            _cursor = _buffer.size();
+            break;
+        case TUI_KEY_CTRL('a'):
+            _cursor = 0;
+            break;
         case KEY_DC:
         case KEY_BACKSPACE:
         case 127:
@@ -419,6 +432,17 @@ public:
         case KEY_ENTER:
         case '\n':
             break;
+        case TUI_KEY_CTRL('w'):{
+            while (_cursor != 0 and std::isspace(_buffer.at(_cursor - 1))) {
+                _buffer.erase(_buffer.begin() + (_cursor - 1));
+                _cursor -= 1;
+            }
+            while (_cursor != 0 and not std::isspace(_buffer.at(_cursor - 1))) {
+                _buffer.erase(_buffer.begin() + (_cursor - 1));
+                _cursor -= 1;
+            }
+            break;
+        }
         default:
             if (isascii(key)) {
                 _buffer.insert(_cursor, 1, key);
@@ -495,6 +519,7 @@ public:
             _provider->_tui = nullptr;
         }
         _provider = provider;
+        _content_selected_index = 0;
 
         if (_provider) {
             _provider->_tui = this;
@@ -645,7 +670,7 @@ class MessageView : public VisibleContainer<AttributedString>, public std::enabl
     size_t _message_max;
 
 public:
-    MessageView(size_t message_max = 1000)
+    MessageView(size_t message_max = 100 * 1000)
         : _message_max(message_max)
     {
         set_flags(ContentProviderFlagAutoScrollTail);

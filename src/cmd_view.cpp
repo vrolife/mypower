@@ -33,11 +33,13 @@ struct RefreshInterface {
 template <typename T>
 class DataViewContinuous : public VisibleContainer<T>, public RefreshInterface {
     uintptr_t _address {};
-    char _mode { 'd' };
+    char _mode { 'h' };
     int _auto_refresh { -1 };
     std::shared_ptr<Process>& _process;
 
+    int _unity3d_object { -1 };
     int _unity3d_class { -1 };
+    int _cstring_index { -1 };
 
 public:
     DataViewContinuous(std::shared_ptr<Process>& process, uintptr_t address)
@@ -51,22 +53,31 @@ public:
         return AttributedString::layout("Data", width, 1, '-', LayoutAlign::Center);
     }
 
-    void show_unity32_class_name(AttributedStringBuilder& builder, VMAddress vmaddr)
+    void show_unity32_object_type(AttributedStringBuilder& builder, VMAddress vmaddr)
     {
         uintptr_t class_ptr { 0 };
-        uintptr_t name_ptr { 0 };
 
         if (_process->read(vmaddr, &class_ptr, sizeof(uintptr_t)) != sizeof(uintptr_t)) {
             return;
         }
 
+        return show_unity32_class_name(builder, VMAddress{class_ptr});
+    }
+
+    void show_unity32_class_name(AttributedStringBuilder& builder, VMAddress class_ptr)
+    {
+        uintptr_t name_ptr { 0 };
+
         if (_process->read(VMAddress { class_ptr + 2 * sizeof(uintptr_t) }, &name_ptr, sizeof(uintptr_t)) != sizeof(uintptr_t)) {
             return;
         }
 
+        show_cstring(builder, VMAddress{name_ptr});
+    }
+
+    void show_cstring(AttributedStringBuilder& builder, VMAddress ptr) {
         std::array<char, 32> buffer {};
-        if (_process->read(VMAddress { name_ptr }, buffer.data(), buffer.size()) == buffer.size()) {
-            builder << " | ";
+        if (_process->read(ptr, buffer.data(), buffer.size()) == buffer.size()) {
             for (auto ch : buffer) {
                 if (ch == 0) {
                     break;
@@ -87,12 +98,16 @@ public:
         auto& data = this->at(index);
         builder << "0x" << std::hex << (index * sizeof(T) + _address) << ": ";
 
-        if constexpr (std::is_floating_point<T>::value or std::is_integral<T>::value) {
+        if constexpr (std::is_integral<T>::value) {
             if (_mode == 'h') {
                 builder << "0x" << std::hex << data;
             } else {
                 builder << std::dec << data;
             }
+
+        } else if constexpr (std::is_floating_point<T>::value) {
+            builder << std::dec << data;
+
         } else {
             for (auto ch : data) {
                 builder << std::setw(2) << std::setfill('0') << std::hex << (int)ch << " ";
@@ -108,8 +123,22 @@ public:
         }
 
         if constexpr (std::is_same<T, uintptr_t>::value) {
+            if (index == _unity3d_object and _mode == 'h' and sizeof(T) == sizeof(uintptr_t)) {
+                builder << " | Object: " << SetColor(ColorInfo);
+                show_unity32_object_type(builder, VMAddress{data});
+                builder << ResetStyle{};
+            }
+            
             if (index == _unity3d_class and _mode == 'h' and sizeof(T) == sizeof(uintptr_t)) {
+                builder << " | Class: " << SetColor(ColorInfo);
                 show_unity32_class_name(builder, VMAddress{data});
+                builder << ResetStyle{};
+            }
+
+            if (index == _cstring_index and _mode == 'h' and sizeof(T) == sizeof(uintptr_t)) {
+                builder << " | String: " << SetColor(ColorInfo);
+                show_cstring(builder, VMAddress{data});
+                builder << ResetStyle{};
             }
         }
 
@@ -121,7 +150,7 @@ public:
         _process->read(VMAddress { _address }, this->data(), this->size() * sizeof(T));
     }
 
-    bool tui_key(int key) override
+    bool tui_key(size_t index, int key) override
     {
         switch (key) {
         case 'h':
@@ -142,6 +171,18 @@ public:
         case 'A':
             _auto_refresh = -1;
             return true;
+        case 'o':
+            _unity3d_object = index;
+            this->tui_notify_changed();
+            return true;
+        case 'c':
+            _unity3d_class = index;
+            this->tui_notify_changed();
+            return true;
+        case 's':
+            _cstring_index = index;
+            this->tui_notify_changed();
+            return true;
         }
         return false;
     }
@@ -158,11 +199,10 @@ public:
         return _auto_refresh;
     }
 
-    std::string tui_select(size_t index) override
-    {
-        _unity3d_class = index;
-        return {};
-    }
+    // std::string tui_select(size_t index) override
+    // {
+    //     return {};
+    // }
 };
 
 template <typename T>
@@ -217,6 +257,8 @@ public:
         _options.add_options()("U32,I", po::bool_switch()->default_value(false), "32 bit unsigned integer");
         _options.add_options()("U16,H", po::bool_switch()->default_value(false), "16 bit unsigned integer");
         _options.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
+        _options.add_options()("FLOAT,f", po::bool_switch()->default_value(false), "float");
+        _options.add_options()("DOUBLE,d", po::bool_switch()->default_value(false), "double");
         _options.add_options()("HEX,hex", po::bool_switch()->default_value(false), "hexdump");
         _options.add_options()("end,e", po::bool_switch()->default_value(false), "count is end address");
         _options.add_options()("refresh,r", po::bool_switch()->default_value(false), "refresh current view");
@@ -259,6 +301,8 @@ public:
             type |= opts["U16"].as<bool>() ? MatchTypeBitU16 : 0;
             type |= opts["U32"].as<bool>() ? MatchTypeBitU32 : 0;
             type |= opts["U64"].as<bool>() ? MatchTypeBitU64 : 0;
+            type |= opts["FLOAT"].as<bool>() ? MatchTypeBitFLOAT : 0;
+            type |= opts["DOUBLE"].as<bool>() ? MatchTypeBitDOUBLE : 0;
             type |= opts["HEX"].as<bool>() ? MatchTypeBitBYTES : 0;
         } catch (const std::exception& e) {
             message()

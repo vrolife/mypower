@@ -27,6 +27,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <unistd.h>
 
 #include <cassert>
+#include <mutex>
 #include <sstream>
 
 #include "comparator.hpp"
@@ -52,10 +53,11 @@ class MemoryMapper {
     VMAddress _end_addr;
     size_t _size;
     size_t _step;
-    void* _cache { nullptr };
+    void* _cache { MAP_FAILED };
     void* _backup;
     size_t _cache_capacity;
     size_t _page_size;
+    size_t _total_memory;
 
     ssize_t _cached_size { 0 };
     ssize_t _backup_size { 0 };
@@ -71,7 +73,8 @@ public:
         , _cache_capacity(cache_capacity)
         , _page_size(sysconf(_SC_PAGESIZE))
     {
-        _cache = mmap(nullptr, _cache_capacity + (2 * _page_size), PROT_READ | PROT_WRITE,
+        _total_memory = _cache_capacity + (2 * _page_size);
+        _cache = mmap(nullptr, _total_memory, PROT_READ | PROT_WRITE,
             MAP_ANON | MAP_PRIVATE, -1, 0);
         if (_cache == MAP_FAILED) {
             throw std::runtime_error("Out of memory");
@@ -81,8 +84,9 @@ public:
 
     ~MemoryMapper()
     {
-        if (_cache != nullptr) {
-            munmap(_cache, _cache_capacity);
+        if (_cache != MAP_FAILED) {
+            munmap(_cache, _total_memory);
+            _cache = MAP_FAILED;
         }
     }
 
@@ -216,10 +220,28 @@ public:
 
         MATCH_TYPES(__ACCESS);
 #undef __ACCESS
-        std::ostringstream oss{};
+        std::ostringstream oss {};
         oss << "index out of range: index: " << index << " size: " << size();
         throw std::out_of_range(oss.str());
     }
+
+#define __BEGIN(t)                   \
+    auto t##_begin()                 \
+    {                                \
+        return _matches_##t.begin(); \
+    }
+
+    MATCH_TYPES(__BEGIN);
+#undef __BEGIN
+
+#define __END(t)                   \
+    auto t##_end()                 \
+    {                              \
+        return _matches_##t.end(); \
+    }
+
+    MATCH_TYPES(__END);
+#undef __END
 
 #define __SIZE(t)                   \
     size_t t##_size() const         \
@@ -246,6 +268,7 @@ public:
     if constexpr (std::is_same<T, Match##t>::value) { \
         _matches_##t.emplace_back(std::move(match));  \
     }
+
         MATCH_TYPES(__ADD_MATCH);
 #undef __ADD_MATCH
     }
@@ -253,7 +276,9 @@ public:
     template <typename T>
     void scan(T&& scanner, uint32_t mask = kRegionFlagRead)
     {
+#pragma omp parallel for schedule(dynamic)
         for (auto& region : _memory_regions) {
+
             if ((region._prot & mask) != mask) {
                 continue;
             }
@@ -262,18 +287,17 @@ public:
             auto end = region._end;
             auto size = region.size();
 
-            MemoryMapper mapper { _process, begin, end, scanner.step(), _cache_size };
-
-            auto callback = [&](typename T::MatchType&& value) {
-                add_match(std::move(value));
-            };
-
             try {
+                MemoryMapper mapper { _process, begin, end, scanner.step(), _cache_size };
+
                 while (mapper.next()) {
-                    scanner(mapper.address_begin(), mapper.begin(), mapper.end(), callback);
+                    scanner(mapper.address_begin(), mapper.begin(), mapper.end(),
+                        [&](typename T::MatchType&& value) {
+#pragma omp critical
+                            add_match(std::move(value));
+                        });
                 }
             } catch (...) {
-                continue;
             }
         }
     }
@@ -545,14 +569,15 @@ public:
 };
 
 class ScanBytes {
-    typeBYTES _bytes{};
+    typeBYTES _bytes {};
 
 public:
     typedef MatchBYTES MatchType;
 
     ScanBytes(const typeBYTES bytes)
-    : _bytes(bytes)
-    { }
+        : _bytes(bytes)
+    {
+    }
 
     size_t step() const { return _bytes.size(); }
 
@@ -561,22 +586,22 @@ public:
     {
         auto begin = reinterpret_cast<uint8_t*>(buffer_begin);
         auto end = reinterpret_cast<uint8_t*>(buffer_end);
-        
+
         if ((end - begin) < _bytes.size()) {
             return;
         }
 
         uint8_t* ptr = begin;
-        
+
         do {
             ptr = (uint8_t*)memmem(ptr, end - ptr, _bytes.data(), _bytes.size());
             if (ptr != nullptr) {
                 auto address = addr_begin + (ptr - begin);
-                callback(MatchBYTES(std::move(address), typeBYTES{_bytes}));
+                callback(MatchBYTES(std::move(address), typeBYTES { _bytes }));
                 ptr += _bytes.size();
-            } 
+            }
 
-        } while(ptr != nullptr and ptr <= (end - _bytes.size()));
+        } while (ptr != nullptr and ptr <= (end - _bytes.size()));
     }
 };
 

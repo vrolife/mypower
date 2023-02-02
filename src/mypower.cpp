@@ -120,6 +120,7 @@ public:
             "test",
             "scan",
             "snapshot",
+            "session",
             "filter",
             "update"
         };
@@ -185,8 +186,12 @@ public:
         } else if (command == "msg" or command == "mesg" or command == "message") {
             show(_message_view);
 
+        } else if (command == "clear") {
+            _message_view->clear();
+
         } else if (command == "history") {
             show(_history_view);
+
         } else if (command == "help") {
             show_help();
 
