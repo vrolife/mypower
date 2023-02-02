@@ -106,33 +106,31 @@ public:
     void complete()
     {
         auto& editor = _tui.editor();
-        const auto& buffer = editor.buffer();
+        const auto& input = editor.buffer();
+
+        if (input.empty()) {
+            return;
+        }
 
         static std::vector<std::string> keyworks = {
             "help",
             "exit",
             "msg", "mesg", "message",
-            "history",
-            "back",
-            "attach",
-            "selfattach",
-            "ps", "findps", "findpsex",
-            "test",
-            "scan",
-            "snapshot",
-            "session",
-            "filter",
-            "update"
+            "history"
         };
 
-        if (buffer.empty()) {
-            return;
+        for (auto& str : keyworks) {
+            if (str.find(input) == 0) {
+                _tui.editor().update(str, -1);
+                return;
+            }
         }
 
-        for (auto& str : keyworks) {
-            if (str.find(buffer) == 0) {
-                _tui.editor().update(str, -1);
-                break;
+        for (auto& cmd : _commands) {
+            auto s = cmd->complete(input);
+            if (not s.empty()) {
+                _tui.editor().update(s, -1);
+                return;
             }
         }
     }

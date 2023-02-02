@@ -415,9 +415,11 @@ public:
                 _cursor += 1;
             }
             break;
+        case KEY_END:
         case TUI_KEY_CTRL('e'):
             _cursor = _buffer.size();
             break;
+        case KEY_HOME:
         case TUI_KEY_CTRL('a'):
             _cursor = 0;
             break;

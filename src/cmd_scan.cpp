@@ -50,7 +50,7 @@ public:
 class SessionViewImpl : public SessionView {
     std::string _name;
     std::string _expr;
-    char _mode{'h'};
+    char _mode { 'h' };
 
 public:
     Session _session;
@@ -131,20 +131,21 @@ public:
         return _session.size();
     }
 
-    bool tui_key(size_t index, int key) override {
-        switch(key) {
-            case 'h':
-                _mode = 'h';
-                this->tui_notify_changed();
-                return true;
-            case 'd':
-                _mode = 'd';
-                this->tui_notify_changed();
-                return true;
-            case 'r':
-                this->_session.update_matches();
-                this->tui_notify_changed();
-                return true;
+    bool tui_key(size_t index, int key) override
+    {
+        switch (key) {
+        case 'h':
+            _mode = 'h';
+            this->tui_notify_changed();
+            return true;
+        case 'd':
+            _mode = 'd';
+            this->tui_notify_changed();
+            return true;
+        case 'r':
+            this->_session.update_matches();
+            this->tui_notify_changed();
+            return true;
         }
         return false;
     }
@@ -213,7 +214,7 @@ std::shared_ptr<SessionView> scan(
 {
     auto view = std::make_shared<SessionViewImpl>(process, config._name, config._expr);
 
-    AutoSuspendResume suspend{process, config._suspend_same_user, process->pid() != ::getpid()};
+    AutoSuspendResume suspend { process, config._suspend_same_user, process->pid() != ::getpid() };
 
     view->_session.update_memory_region();
 
@@ -330,7 +331,7 @@ std::shared_ptr<SessionView> scan(
         }
 
     } else if (config._c_string) {
-        view->_session.scan(ScanBytes{ typeBYTES{config._expr.begin(), config._expr.end()} });
+        view->_session.scan(ScanBytes { typeBYTES { config._expr.begin(), config._expr.end() } });
 
     } else {
         message_view->stream()
@@ -489,13 +490,20 @@ public:
         _options.add_options()("name,n", po::value<std::string>(), "session name");
         _posiginal.add("expr", 1);
     }
-
+    std::string complete(const std::string& input) override
+    {
+        if ("scan"s.find(input) == 0) {
+            return "scan";
+        }
+        return {};
+    }
     bool match(const std::string& command) override
     {
         return command == "scan";
     }
 
-    void show_short_help() override {
+    void show_short_help() override
+    {
         message() << "scan\t\t\tScan data";
     }
 
@@ -590,13 +598,20 @@ public:
         _options.add_options()("expr,f", po::value<std::string>(), "filter expression");
         _posiginal.add("expr", 1);
     }
-
+    std::string complete(const std::string& input) override
+    {
+        if ("filter"s.find(input) == 0) {
+            return "filter";
+        }
+        return {};
+    }
     bool match(const std::string& command) override
     {
         return command == "filter";
     }
-    
-    void show_short_help() override {
+
+    void show_short_help() override
+    {
         message() << "filter\t\t\tFilter matched data";
     }
 

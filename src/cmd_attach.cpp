@@ -36,6 +36,17 @@ public:
         _posiginal.add("pid", 1);
     }
 
+    std::string complete(const std::string& input) override
+    {
+        if ("selfattach"s.find(input) == 0) {
+            return "selfattach";
+        }
+        if ("attach"s.find(input) == 0) {
+            return "attach";
+        }
+        return {};
+    }
+
     bool match(const std::string& command) override
     {
         return command == "selfattach" or command == "attach";

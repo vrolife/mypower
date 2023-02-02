@@ -104,12 +104,27 @@ public:
         _posiginal.add("filter", 1);
     }
 
+    std::string complete(const std::string& input) override
+    {
+        if ("ps"s.find(input) == 0) {
+            return "ps";
+        }
+        if ("findps"s.find(input) == 0) {
+            return "findps";
+        }
+        if ("findpsex"s.find(input) == 0) {
+            return "findpsex";
+        }
+        return {};
+    }
+
     bool match(const std::string& command) override
     {
         return command == "ps" or command == "findps" or command == "findpsex";
     }
-    
-    void show_short_help() override {
+
+    void show_short_help() override
+    {
         message() << "ps\t\t\tList all processes";
         message() << "findps\t\t\tList processes contains substring";
         message() << "findpsex\t\tList processes matches regex";

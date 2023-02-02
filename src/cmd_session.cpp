@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "mypower.hpp"
 
 namespace po = boost::program_options;
+using namespace std::string_literals;
 
 namespace mypower {
 
@@ -37,13 +38,20 @@ public:
         _options.add_options()("delete,d", po::bool_switch()->default_value(false), "delete session");
         _posiginal.add("session", 1);
     }
-
+    std::string complete(const std::string& input) override
+    {
+        if ("session"s.find(input) == 0) {
+            return "session";
+        }
+        return {};
+    }
     bool match(const std::string& command) override
     {
         return command == "session";
     }
 
-    void show_short_help() override {
+    void show_short_help() override
+    {
         message() << "session\t\t\tList/Select/Delete session";
     }
 

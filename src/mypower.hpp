@@ -75,6 +75,10 @@ struct Command {
 
     virtual void show_short_help() { }
 
+    virtual std::string complete(const std::string& input) {
+        return {};
+    }
+
     MessageStream message();
 
     template <typename T>

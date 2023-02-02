@@ -71,6 +71,14 @@ public:
         _posiginal.add("filter", 1);
     }
 
+    std::string complete(const std::string& input) override
+    {
+        if ("region"s.find(input) == 0) {
+            return "region";
+        }
+        return {};
+    }
+
     bool match(const std::string& command) override
     {
         return command == "region";
@@ -105,6 +113,16 @@ public:
             return;
         }
         
+        if (not _app._process) {
+            message()
+                << SetColor(ColorError)
+                << "Error:"
+                << ResetStyle()
+                << " Invalid target process: attach to target using the 'attach' command";
+            show();
+            return;
+        }
+
         if (not opts["regex"].as<bool>()) {
             filter = ".*"s + filter + ".*"s;
         }

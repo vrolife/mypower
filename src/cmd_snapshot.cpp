@@ -40,7 +40,7 @@ class ProcessSnapshot : public Process {
 
     VMRegion::ListType _regions {};
 
-    std::map<uintptr_t, size_t> _address_index{};
+    std::map<uintptr_t, size_t> _address_index {};
 
     std::vector<std::vector<uint8_t>> _memory {};
 
@@ -171,8 +171,7 @@ public:
                 idx = pair->second;
             }
 
-            for(; idx >= 0; --idx) 
-            {
+            for (; idx >= 0; --idx) {
                 auto& region = _regions.at(idx);
                 if (addr >= region._begin.get() and addr_end <= region._end.get()) {
                     break;
@@ -194,8 +193,10 @@ public:
             }
 
             assert(addr >= region._begin.get() and addr_end <= region._end.get());
-            
-            struct iovec vec{ reinterpret_cast<void*>(_memory.at(idx).data() + (addr - region._begin.get())), iovec_iter->iov_len };
+
+            struct iovec vec {
+                reinterpret_cast<void*>(_memory.at(idx).data() + (addr - region._begin.get())), iovec_iter->iov_len
+            };
             relocated.push_back(vec);
             assert(vec.iov_base != nullptr);
         }
@@ -248,7 +249,13 @@ public:
         _options.add_options()("prefix", po::value<std::string>(), "prefix");
         _posiginal.add("prefix", 1);
     }
-
+    std::string complete(const std::string& input) override
+    {
+        if ("snapshot"s.find(input) == 0) {
+            return "snapshot";
+        }
+        return {};
+    }
     bool match(const std::string& command) override
     {
         return command == "snapshot";
@@ -323,8 +330,8 @@ public:
                     }
 
                     if (fwrite(in_buffer.data(), read_size, 1, memory_file) != 1) {
-                        message() 
-                            << attributes::SetColor(attributes::ColorError) 
+                        message()
+                            << attributes::SetColor(attributes::ColorError)
                             << "Out of disk space: " << std::hex
                             << region._begin.get() << "-" << region._end.get()
                             << " " << region._file;
@@ -334,13 +341,13 @@ public:
 
                     saved_size += read_size;
 
-                    begin = VMAddress{begin.get() + read_size};
+                    begin = VMAddress { begin.get() + read_size };
                 }
 
                 if (begin != end) {
                     region._prot = 0;
-                    message() 
-                        << attributes::SetColor(attributes::ColorError) 
+                    message()
+                        << attributes::SetColor(attributes::ColorError)
                         << "Save region failed: " << std::hex
                         << region._begin.get() << "-" << region._end.get()
                         << " " << region._file;

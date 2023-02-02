@@ -14,10 +14,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#include <condition_variable>
+#include <mutex>
 #include <random>
 #include <thread>
-#include <mutex>
-#include <condition_variable>
 
 #include <boost/program_options.hpp>
 
@@ -29,28 +29,31 @@ using namespace std::string_literals;
 namespace mypower {
 
 class TestView : public VisibleContainer<ssize_t> {
-    bool _auto_increase{false};
-    std::thread _thread{};
-    std::timed_mutex _mutex{};
+    bool _auto_increase { false };
+    std::thread _thread {};
+    std::timed_mutex _mutex {};
 
-    std::vector<uint32_t> _test_values{};
+    std::vector<uint32_t> _test_values {};
 
-    static void thread_func(TestView* self) {
-        while(self->_auto_increase) {
+    static void thread_func(TestView* self)
+    {
+        while (self->_auto_increase) {
             self->_mutex.try_lock();
-            self->_mutex.try_lock_for(std::chrono::seconds{1});
+            self->_mutex.try_lock_for(std::chrono::seconds { 1 });
             self->at(0) += 1;
         }
     }
 
-    void start() {
+    void start()
+    {
         if (_thread.joinable()) {
             return;
         }
-        _thread = std::thread{&TestView::thread_func, this};
+        _thread = std::thread { &TestView::thread_func, this };
     }
 
-    void stop() {
+    void stop()
+    {
         if (not _thread.joinable()) {
             return;
         }
@@ -72,7 +75,8 @@ public:
         emplace_back(0);
     }
 
-    ~TestView() override {
+    ~TestView() override
+    {
         stop();
     }
 
@@ -134,19 +138,20 @@ public:
             tui_notify_changed();
             break;
         case 5: {
-                _auto_increase = !_auto_increase;
-                if (_auto_increase) {
-                    start();
-                } else {
-                    stop();
-                }
-                break;
+            _auto_increase = !_auto_increase;
+            if (_auto_increase) {
+                start();
+            } else {
+                stop();
             }
+            break;
+        }
         }
         return {};
     }
 
-    bool tui_show(size_t width) override {
+    bool tui_show(size_t width) override
+    {
         if (_test_values.empty()) {
             _test_values.resize(100);
             std::fill(_test_values.begin(), _test_values.end(), 0x12341234);
@@ -154,20 +159,21 @@ public:
         return true;
     }
 
-    int tui_timeout() override {
+    int tui_timeout() override
+    {
         this->tui_notify_changed();
         return 1000;
     }
 };
 
-class CommandRegion : public Command {
+class CommandTest : public Command {
     std::shared_ptr<TestView> _test_view;
 
     po::options_description _options { "Allowed options" };
     po::positional_options_description _posiginal {};
 
 public:
-    CommandRegion(Application& app)
+    CommandTest(Application& app)
         : Command(app, "test")
     {
         _options.add_options()("help", "show help message");
@@ -177,12 +183,20 @@ public:
         _test_view = std::make_shared<TestView>();
     }
 
+    std::string complete(const std::string& input) override
+    {
+        if ("test"s.find(input) == 0) {
+            return "test";
+        }
+        return {};
+    }
     bool match(const std::string& command) override
     {
         return command == "test";
     }
 
-    void show_short_help() override {
+    void show_short_help() override
+    {
         message() << "test\t\t\tShow test view";
     }
 
@@ -211,6 +225,6 @@ public:
     }
 };
 
-static RegisterCommand<CommandRegion> _Test {};
+static RegisterCommand<CommandTest> _Test {};
 
 } // namespace mypower
