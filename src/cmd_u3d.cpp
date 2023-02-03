@@ -41,11 +41,6 @@ public:
         _posiginal.add("prefix", 1);
     }
 
-    bool match(const std::string& command) override
-    {
-        return command == "u3d";
-    }
-
     void show_short_help() override {
         message() << "u3d\t\t\tFind unity3d object";
     }

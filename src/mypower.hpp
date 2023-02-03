@@ -71,11 +71,16 @@ struct Command {
     virtual ~Command() = default;
     virtual void run(const std::string& command, const std::vector<std::string>& args) = 0;
 
-    virtual bool match(const std::string& command) = 0;
+    virtual bool match(const std::string& command) {
+        return command == _name;
+    }
 
     virtual void show_short_help() { }
 
     virtual std::string complete(const std::string& input) {
+        if (_name.find(input) == 0) {
+            return _name;
+        }
         return {};
     }
 

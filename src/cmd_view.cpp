@@ -21,6 +21,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "mypower.hpp"
 #include "scanner.hpp"
 
+#define LIMIT_IN_BYTES 1024 * 1024
+
 namespace po = boost::program_options;
 using namespace std::string_literals;
 
@@ -32,8 +34,8 @@ struct RefreshInterface {
 
 template <typename T>
 class DataViewContinuous : public VisibleContainer<T>, public RefreshInterface {
-    uintptr_t _address {};
-    char _mode { 'h' };
+    uintptr_t _address;
+    char _mode;
     int _auto_refresh { -1 };
     std::shared_ptr<Process>& _process;
 
@@ -42,9 +44,10 @@ class DataViewContinuous : public VisibleContainer<T>, public RefreshInterface {
     int _cstring_index { -1 };
 
 public:
-    DataViewContinuous(std::shared_ptr<Process>& process, uintptr_t address)
+    DataViewContinuous(std::shared_ptr<Process>& process, uintptr_t address, char mode = 'h')
         : _process(process)
         , _address(address)
+        , _mode{mode}
     {
     }
 
@@ -99,12 +102,18 @@ public:
         builder << "0x" << std::hex << (index * sizeof(T) + _address) << ": ";
 
         if constexpr (std::is_integral<T>::value) {
-            if (_mode == 'h') {
-                builder << "0x" << std::hex << data;
-            } else {
-                builder << std::dec << data;
+            switch(_mode) {
+                case 'h':
+                    builder << "0x" << std::hex << data;
+                    break;
+                case 'd':
+                    builder << std::dec << data;
+                    break;
+                case 'o':
+                    builder << "0" << std::oct << data;
+                    break;
             }
-
+            
         } else if constexpr (std::is_floating_point<T>::value) {
             builder << std::dec << data;
 
@@ -206,9 +215,9 @@ public:
 };
 
 template <typename T>
-static auto create_number_view(std::shared_ptr<Process>& process, uintptr_t addr, uintptr_t count, size_t limit_in_bytes)
+static auto create_number_view(std::shared_ptr<Process>& process, uintptr_t addr, uintptr_t count, size_t limit_in_bytes, char mode)
 {
-    auto view = std::make_shared<DataViewContinuous<T>>(process, addr);
+    auto view = std::make_shared<DataViewContinuous<T>>(process, addr, mode);
 
     size_t size_in_bytes = count * sizeof(T);
     if (size_in_bytes > limit_in_bytes) {
@@ -262,7 +271,7 @@ public:
         _options.add_options()("HEX,hex", po::bool_switch()->default_value(false), "hexdump");
         _options.add_options()("end,e", po::bool_switch()->default_value(false), "count is end address");
         _options.add_options()("refresh,r", po::bool_switch()->default_value(false), "refresh current view");
-        _options.add_options()("limit_in_bytes", po::value<size_t>()->default_value(1024 * 1024), "Limit");
+        _options.add_options()("limit_in_bytes", po::value<size_t>()->default_value(LIMIT_IN_BYTES), "Limit");
         _options.add_options()("address,a", po::value<std::string>(), "start address");
         _options.add_options()("count,c", po::value<std::string>(), "count");
         _posiginal.add("address", 1);
@@ -271,45 +280,146 @@ public:
 
     bool match(const std::string& command) override
     {
-        return command == "view";
+        return command == "view" or memcmp(command.c_str(), "x/",2) == 0;
     }
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
-        PROGRAM_OPTIONS();
+        using namespace tui::attributes;
 
         std::string address_expr {};
         std::string count_expr {};
         uint32_t type { 0 };
         bool count_as_end(false);
-        size_t limit_in_bytes { 0 };
+        size_t limit_in_bytes { LIMIT_IN_BYTES };
+        char mode{'h'};
 
-        try {
-            if (opts.count("address")) {
-                address_expr = opts["address"].as<std::string>();
+        if (memcmp(command.c_str(), "x/", 2) == 0) {
+            char width{'w'};
+            char format{'x'};
+            auto iter = command.begin() + 2;
+            while(iter != command.end()) {
+                if (std::isdigit(*iter)) {
+                    while(std::isdigit(*iter)) {
+                        count_expr.push_back(*iter);
+                        ++iter;
+                    }
+                    continue;
+                }
+                switch(*iter) {
+                    case 'x':
+                        mode = 'h';
+                        format = *iter;
+                        break;
+                    case 'o':
+                        mode = 'o';
+                        format = *iter;
+                        break;
+                    case 'd':
+                    case 'u':
+                        mode = 'd';
+                        format = *iter;
+                        break;
+                    case 'f':
+                    case 's':
+                        format = *iter;
+                        break;
+                    case 'b':
+                    case 'h':
+                    case 'w':
+                    case 'g':
+                        width = *iter;
+                        break;
+                    default:
+                        message()
+                            << EnableStyle(AttrUnderline) << SetColor(ColorError) 
+                            << "Error: " << ResetStyle()
+                            << "Unsupported option: " << *iter;
+                        show();
+                        return;
+                }
+                ++iter;
             }
-            if (opts.count("count")) {
-                count_expr = opts["count"].as<std::string>();
+
+            if (format == 'd' or format == 'o') {
+                switch(width) {
+                    case 'b': type = MatchTypeBitI8; break;
+                    case 'h': type = MatchTypeBitI16; break;
+                    case 'w': type = MatchTypeBitI32; break;
+                    case 'g': type = MatchTypeBitI64; break;
+                }
+            } else if (format == 'u' or format == 'x') {
+                switch(width) {
+                    case 'b': type = MatchTypeBitU8; break;
+                    case 'h': type = MatchTypeBitU16; break;
+                    case 'w': type = MatchTypeBitU32; break;
+                    case 'g': type = MatchTypeBitU64; break;
+                }
+            } else if (format == 'f') {
+                switch(width) {
+                    case 'b':
+                    case 'h':
+                        message()
+                            << EnableStyle(AttrUnderline) << SetColor(ColorError) 
+                            << "Error: " << ResetStyle()
+                            << "Unsupported floating point width: " << width;
+                        show();
+                        return;
+                    case 'w': type = MatchTypeBitFLOAT; break;
+                    case 'g': type = MatchTypeBitDOUBLE; break;
+                }
+            } else if (format == 's') {
+                type = MatchTypeBitBYTES;
             }
-            count_as_end = opts["end"].as<bool>();
-            limit_in_bytes = opts["limit_in_bytes"].as<size_t>();
-            type |= opts["I8"].as<bool>() ? MatchTypeBitI8 : 0;
-            type |= opts["I16"].as<bool>() ? MatchTypeBitI16 : 0;
-            type |= opts["I32"].as<bool>() ? MatchTypeBitI32 : 0;
-            type |= opts["I64"].as<bool>() ? MatchTypeBitI64 : 0;
-            type |= opts["U8"].as<bool>() ? MatchTypeBitU8 : 0;
-            type |= opts["U16"].as<bool>() ? MatchTypeBitU16 : 0;
-            type |= opts["U32"].as<bool>() ? MatchTypeBitU32 : 0;
-            type |= opts["U64"].as<bool>() ? MatchTypeBitU64 : 0;
-            type |= opts["FLOAT"].as<bool>() ? MatchTypeBitFLOAT : 0;
-            type |= opts["DOUBLE"].as<bool>() ? MatchTypeBitDOUBLE : 0;
-            type |= opts["HEX"].as<bool>() ? MatchTypeBitBYTES : 0;
-        } catch (const std::exception& e) {
-            message()
-                << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
-                << e.what();
-            show();
-            return;
+
+            if (arguments.empty()) {
+                message()
+                    << EnableStyle(AttrUnderline) << SetColor(ColorError) 
+                    << "Error: " << ResetStyle()
+                    << "Missing address expression";
+                show();
+                return;
+            }
+
+            address_expr = arguments.at(0);
+
+            
+        } else {
+            PROGRAM_OPTIONS();
+            try {
+                if (opts.count("address")) {
+                    address_expr = opts["address"].as<std::string>();
+                }
+                if (opts.count("count")) {
+                    count_expr = opts["count"].as<std::string>();
+                }
+                count_as_end = opts["end"].as<bool>();
+                limit_in_bytes = opts["limit_in_bytes"].as<size_t>();
+                type |= opts["I8"].as<bool>() ? MatchTypeBitI8 : 0;
+                type |= opts["I16"].as<bool>() ? MatchTypeBitI16 : 0;
+                type |= opts["I32"].as<bool>() ? MatchTypeBitI32 : 0;
+                type |= opts["I64"].as<bool>() ? MatchTypeBitI64 : 0;
+                type |= opts["U8"].as<bool>() ? MatchTypeBitU8 : 0;
+                type |= opts["U16"].as<bool>() ? MatchTypeBitU16 : 0;
+                type |= opts["U32"].as<bool>() ? MatchTypeBitU32 : 0;
+                type |= opts["U64"].as<bool>() ? MatchTypeBitU64 : 0;
+                type |= opts["FLOAT"].as<bool>() ? MatchTypeBitFLOAT : 0;
+                type |= opts["DOUBLE"].as<bool>() ? MatchTypeBitDOUBLE : 0;
+                type |= opts["HEX"].as<bool>() ? MatchTypeBitBYTES : 0;
+            } catch (const std::exception& e) {
+                message()
+                    << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error: " << ResetStyle()
+                    << e.what();
+                show();
+                return;
+            }
+
+            if (count_expr.empty() or opts.count("help")) {
+                message() << "Usage: " << command << " [options] address count\n"
+                        << _options;
+                show();
+                return;
+            }
         }
 
         if (not _app._process) {
@@ -322,7 +432,7 @@ public:
             return;
         }
 
-        if (address_expr.empty() or count_expr.empty() or opts.count("help")) {
+        if (address_expr.empty()) {
             message() << "Usage: " << command << " [options] address count\n"
                       << _options;
             show();
@@ -382,7 +492,7 @@ public:
             switch (type) {
 #define __NUMBER_VIEW(t)                                                                                                      \
     case MatchTypeBit##t:                                                                                                     \
-        view = create_number_view<type##t>(_app._process, addr_number_ast->_value, count_number_ast->_value, limit_in_bytes); \
+        view = create_number_view<type##t>(_app._process, addr_number_ast->_value, count_number_ast->_value, limit_in_bytes, mode); \
         break;
 
                 MATCH_TYPES_NUMBER(__NUMBER_VIEW)

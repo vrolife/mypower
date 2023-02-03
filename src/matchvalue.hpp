@@ -56,14 +56,14 @@ typedef double typeDOUBLE;
 typedef std::vector<uint8_t> typeBYTES;
 
 enum MatchTypeBits {
-    MatchTypeBitU8 = 1,
-    MatchTypeBitU16 = 2,
-    MatchTypeBitU32 = 4,
-    MatchTypeBitU64 = 8,
-    MatchTypeBitI8 = 16,
-    MatchTypeBitI16 = 32,
-    MatchTypeBitI32 = 64,
-    MatchTypeBitI64 = 128,
+    MatchTypeBitI8 = 1,
+    MatchTypeBitI16 = 2,
+    MatchTypeBitI32 = 4,
+    MatchTypeBitI64 = 8,
+    MatchTypeBitU8 = 16,
+    MatchTypeBitU16 = 32,
+    MatchTypeBitU32 = 64,
+    MatchTypeBitU64 = 128,
     MatchTypeBitFLOAT = 256,
     MatchTypeBitDOUBLE = 512,
     MatchTypeBitBYTES = 1024,

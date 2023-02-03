@@ -98,6 +98,12 @@ public:
         builder << ResetStyle();
         builder << ": ";
 
+        if (_mode == 'o') {
+            builder << "Oct " << std::oct << SetColor(ColorPrompt);
+            builder.stream([&](std::ostringstream& oss) { access->value(oss); });
+            builder << ResetStyle();
+        }
+
         if (_mode == 'd') {
             builder << "Dec " << std::dec << SetColor(ColorPrompt);
             builder.stream([&](std::ostringstream& oss) { access->value(oss); });
@@ -490,17 +496,6 @@ public:
         _options.add_options()("name,n", po::value<std::string>(), "session name");
         _posiginal.add("expr", 1);
     }
-    std::string complete(const std::string& input) override
-    {
-        if ("scan"s.find(input) == 0) {
-            return "scan";
-        }
-        return {};
-    }
-    bool match(const std::string& command) override
-    {
-        return command == "scan";
-    }
 
     void show_short_help() override
     {
@@ -597,17 +592,6 @@ public:
         _options.add_options()("help", "show help message");
         _options.add_options()("expr,f", po::value<std::string>(), "filter expression");
         _posiginal.add("expr", 1);
-    }
-    std::string complete(const std::string& input) override
-    {
-        if ("filter"s.find(input) == 0) {
-            return "filter";
-        }
-        return {};
-    }
-    bool match(const std::string& command) override
-    {
-        return command == "filter";
     }
 
     void show_short_help() override

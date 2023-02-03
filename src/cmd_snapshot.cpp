@@ -249,17 +249,6 @@ public:
         _options.add_options()("prefix", po::value<std::string>(), "prefix");
         _posiginal.add("prefix", 1);
     }
-    std::string complete(const std::string& input) override
-    {
-        if ("snapshot"s.find(input) == 0) {
-            return "snapshot";
-        }
-        return {};
-    }
-    bool match(const std::string& command) override
-    {
-        return command == "snapshot";
-    }
 
     void show_short_help() override
     {

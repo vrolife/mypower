@@ -51,14 +51,28 @@ public:
     void run(const std::string& command, const std::vector<std::string>& arguments) override
     {
         if (command == "disable-inotify") {
-            UniqueFD fd{open("/proc/sys/fs/inotify/max_user_watches", O_WRONLY)};
-            if (not fd.valid()) {
+            UniqueFD instances{open("/proc/sys/fs/inotify/max_user_instances", O_WRONLY)};
+            if (not instances.valid()) {
+                message() << attributes::SetColor(attributes::ColorError)
+                    << "Unable to open /proc/sys/fs/inotify/max_user_instances: "
+                    << strerror(errno);
+                return;
+            }
+            if (::write(instances, "0", 1) != 1) {
+                message() << attributes::SetColor(attributes::ColorError)
+                    << "Write \"0\" to /proc/sys/fs/inotify/max_user_instances failed: "
+                    << strerror(errno);
+                return;
+            }
+
+            UniqueFD watches{open("/proc/sys/fs/inotify/max_user_watches", O_WRONLY)};
+            if (not watches.valid()) {
                 message() << attributes::SetColor(attributes::ColorError)
                     << "Unable to open /proc/sys/fs/inotify/max_user_watches: "
                     << strerror(errno);
                 return;
             }
-            if (::write(fd, "0", 1) != 1) {
+            if (::write(watches, "0", 1) != 1) {
                 message() << attributes::SetColor(attributes::ColorError)
                     << "Write \"0\" to /proc/sys/fs/inotify/max_user_watches failed: "
                     << strerror(errno);

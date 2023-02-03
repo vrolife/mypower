@@ -71,19 +71,6 @@ public:
         _posiginal.add("filter", 1);
     }
 
-    std::string complete(const std::string& input) override
-    {
-        if ("region"s.find(input) == 0) {
-            return "region";
-        }
-        return {};
-    }
-
-    bool match(const std::string& command) override
-    {
-        return command == "region";
-    }
-
     void show_short_help() override {
         message() << "region\t\t\tShow all regions";
     }

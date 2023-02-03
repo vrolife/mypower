@@ -71,14 +71,6 @@ public:
         _posiginal.add("pointer", 1);
     }
 
-    std::string complete(const std::string& input) override
-    {
-        if ("pointer"s.find(input) == 0) {
-            return "pointer";
-        }
-        return {};
-    }
-
     bool match(const std::string& command) override
     {
         return command == "ptr" or command == "pointer";

@@ -183,18 +183,6 @@ public:
         _test_view = std::make_shared<TestView>();
     }
 
-    std::string complete(const std::string& input) override
-    {
-        if ("test"s.find(input) == 0) {
-            return "test";
-        }
-        return {};
-    }
-    bool match(const std::string& command) override
-    {
-        return command == "test";
-    }
-
     void show_short_help() override
     {
         message() << "test\t\t\tShow test view";
