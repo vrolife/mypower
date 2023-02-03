@@ -128,7 +128,7 @@ public:
         
         for (auto iter = session.U64_begin(); iter != session.U64_end(); ++iter) {
             if (iter->_value > ptr._pointer) {
-                continue;
+                break;
             }
 
             if (iter->_addr.get() >= config.begin and iter->_addr.get() < config.end) {
@@ -215,30 +215,27 @@ public:
             return;
         }
 
+        PointerConfig config;
+        config.begin = begin;
+        config.end = end;
+        config.mask = mask;
+        config.step = step;
+        config.depth_max = depth_max;
+        config.offset_max = offset_max;
+        config.result_max = result_max;
+        config.find_all = opts["all"].as<bool>();
+
+        PointerInfo ptr_info{};
+        ptr_info._pointer = pointer;
+
+        message() 
+            << "From: " << (void*)begin << "-" << (void*)end 
+            << " To: " << EnableStyle(AttrUnderline) << SetColor(ColorInfo) << (void*)pointer;
+
+        auto t0 = std::chrono::system_clock::now();
+
         try {
-            PointerConfig config;
-            config.begin = begin;
-            config.end = end;
-            config.mask = mask;
-            config.step = step;
-            config.depth_max = depth_max;
-            config.offset_max = offset_max;
-            config.result_max = result_max;
-            config.find_all = opts["all"].as<bool>();
-
-            PointerInfo ptr_info{};
-            ptr_info._pointer = pointer;
-
-            auto t0 = std::chrono::system_clock::now();
-
-            message() 
-                << "From: " << (void*)begin << "-" << (void*)end 
-                << " To: " << EnableStyle(AttrUnderline) << SetColor(ColorInfo) << (void*)pointer;
             find_ref(ptr_info, config);
-
-            auto d = std::chrono::system_clock::now() - t0;
-            message() << "Time: " << std::chrono::duration_cast<std::chrono::seconds>(d).count() << "s";
-
         } catch (const GotIt&) {
             // do nothing
 
@@ -249,6 +246,9 @@ public:
             show();
             return;
         }
+
+        auto d = std::chrono::system_clock::now() - t0;
+        message() << "Time: " << std::chrono::duration_cast<std::chrono::seconds>(d).count() << "s";
     }
 };
 

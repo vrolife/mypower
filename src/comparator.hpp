@@ -42,6 +42,10 @@ public:
 
     inline bool operator()(const T& value) const
     {
+        /*
+            and r0,r0,r1
+            cmp r0,r2
+        */
         return ((value & _mask) == _target) ^ Xor;
     }
 };
@@ -62,6 +66,12 @@ public:
 
     inline bool operator()(const T& value) const
     {
+        /*
+            and r0,r1
+            jlt ...
+            and r0,r2
+            jbg ...
+        */
         return (value >= _min and value <= _max) ^ Xor;
     }
 };

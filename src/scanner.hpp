@@ -510,8 +510,8 @@ public:
             auto end = reinterpret_cast<uintptr_t>(buffer_end);
             for (uintptr_t iter = begin; iter != end; iter += step) {
                 auto value = *reinterpret_cast<ValueType*>(iter);
-                auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                 if (UNLIKELY(comparator(value))) {
+                    auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                     callback(MatchType(std::move(address), std::move(value)));
                 }
             }
@@ -522,8 +522,8 @@ public:
             for (uintptr_t iter = begin; iter != end; iter += step) {
                 ValueType value;
                 memcpy(&value, reinterpret_cast<void*>(iter), sizeof(ValueType));
-                auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                 if (UNLIKELY(comparator(value))) {
+                    auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                     callback(MatchType(std::move(address), std::move(value)));
                 }
             }
