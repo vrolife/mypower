@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 
     auto session = std::make_shared<Session>(process, 4096);
     session->update_memory_region();
-    session->scan(ScanComparator<ComparatorEqual<uint32_t>> { { 0x109u }, 4 });
+    session->scan(ScanComparator<ComparatorEqual<uint32_t>> { { 0x109u }, 4 }, kRegionFlagReadWrite);
 
     assert(session->U32_size() >= 2);
 

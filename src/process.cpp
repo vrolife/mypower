@@ -54,7 +54,7 @@ std::string read_process_file(pid_t pid, const char* filename, size_t buffer_siz
 
 std::string read_process_comm(pid_t pid)
 {
-    auto buffer = read_process_file(pid, "comm");
+    auto buffer = read_process_file(pid, "cmdline");
 
     auto iter = std::find_if(buffer.begin(), buffer.end(), [&](char c) {
         return c == '\n' or c == '\0';

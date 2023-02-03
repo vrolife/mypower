@@ -158,38 +158,38 @@ public:
 };
 
 template <typename T>
-static void scan_fast(Session& session, dsl::ComparatorType opr, uintptr_t constant1, uintptr_t constant2, size_t step)
+static void scan_fast(Session& session, dsl::ComparatorType opr, uintptr_t constant1, uintptr_t constant2, const ScanArgs& args)
 {
     switch (opr) {
     case dsl::ComparatorType::EQ_Expr:
-        session.scan(ScanComparator<ComparatorEqual<T>> { { static_cast<T>(constant1) }, step });
+        session.scan(ScanComparator<ComparatorEqual<T>> { { static_cast<T>(constant1) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::NE_Expr:
-        session.scan(ScanComparator<ComparatorNotEqual<T>> { { static_cast<T>(constant1) }, step });
+        session.scan(ScanComparator<ComparatorNotEqual<T>> { { static_cast<T>(constant1) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::GT_Expr:
-        session.scan(ScanComparator<ComparatorGreaterThen<T>> { { static_cast<T>(constant1) }, step });
+        session.scan(ScanComparator<ComparatorGreaterThen<T>> { { static_cast<T>(constant1) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::GE_Expr:
-        session.scan(ScanComparator<ComparatorGreaterOrEqual<T>> { { static_cast<T>(constant1) }, step });
+        session.scan(ScanComparator<ComparatorGreaterOrEqual<T>> { { static_cast<T>(constant1) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::LT_Expr:
-        session.scan(ScanComparator<ComparatorLessThen<T>> { { static_cast<T>(constant1) }, step });
+        session.scan(ScanComparator<ComparatorLessThen<T>> { { static_cast<T>(constant1) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::LE_Expr:
-        session.scan(ScanComparator<ComparatorLessOrEqual<T>> { { static_cast<T>(constant1) }, step });
+        session.scan(ScanComparator<ComparatorLessOrEqual<T>> { { static_cast<T>(constant1) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::EQ_Mask:
-        session.scan(ScanComparator<ComparatorMask<T>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+        session.scan(ScanComparator<ComparatorMask<T>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::NE_Mask:
-        session.scan(ScanComparator<ComparatorMask<T, true>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+        session.scan(ScanComparator<ComparatorMask<T, true>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::EQ_Range:
-        session.scan(ScanComparator<ComparatorRange<T>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+        session.scan(ScanComparator<ComparatorRange<T>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, args._step }, args._prot, args._exclude_file);
         break;
     case dsl::ComparatorType::NE_Range:
-        session.scan(ScanComparator<ComparatorRange<T, true>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, step });
+        session.scan(ScanComparator<ComparatorRange<T, true>> { { static_cast<T>(constant1), static_cast<T>(constant2) }, args._step }, args._prot, args._exclude_file);
         break;
     default:
         assert(false && "Fast mode does not support this operator");
@@ -197,7 +197,7 @@ static void scan_fast(Session& session, dsl::ComparatorType opr, uintptr_t const
 }
 
 template <typename T>
-static void scan(const ScanArgs& config, bool fast_mode, Session& session, dsl::ComparatorExpression& comparator)
+static void scan(const ScanArgs& args, bool fast_mode, Session& session, dsl::ComparatorExpression& comparator)
 {
     if (fast_mode) {
         scan_fast<T>(
@@ -205,35 +205,39 @@ static void scan(const ScanArgs& config, bool fast_mode, Session& session, dsl::
             comparator._comparator,
             comparator._constant1.value_or(0),
             comparator._constant2.value_or(0),
-            config._step);
+            args);
 
     } else { // JIT
         auto code = comparator.compile();
-        session.scan(ScanExpression<T, dsl::JITCode> { std::move(code), config._step });
+        session.scan(ScanExpression<T, dsl::JITCode> { std::move(code), args._step }, args._prot, args._exclude_file);
     }
 }
 
 std::shared_ptr<SessionView> scan(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<Process>& process,
-    ScanArgs& config)
+    ScanArgs& args)
 {
-    auto view = std::make_shared<SessionViewImpl>(process, config._name, config._expr);
+    auto view = std::make_shared<SessionViewImpl>(process, args._name, args._expr);
 
-    AutoSuspendResume suspend { process, config._suspend_same_user, process->pid() != ::getpid() };
+    AutoSuspendResume suspend { process, args._suspend_same_user, process->pid() != ::getpid() };
 
     view->_session.update_memory_region();
 
-    if (config._type_bits & MatchTypeBitIntegerMask) {
+    if (args._type_bits & MatchTypeBitNumberMask) {
         size_t data_size = 0;
 
-        if (config._type_bits & (MatchTypeBitI8 | MatchTypeBitU8)) {
+        if (args._type_bits & (MatchTypeBitI8 | MatchTypeBitU8)) {
             data_size = 1;
-        } else if (config._type_bits & (MatchTypeBitI16 | MatchTypeBitU16)) {
+        } else if (args._type_bits & (MatchTypeBitI16 | MatchTypeBitU16)) {
             data_size = 2;
-        } else if (config._type_bits & (MatchTypeBitI32 | MatchTypeBitU32)) {
+        } else if (args._type_bits & (MatchTypeBitI32 | MatchTypeBitU32)) {
             data_size = 4;
-        } else if (config._type_bits & (MatchTypeBitI64 | MatchTypeBitU64)) {
+        } else if (args._type_bits & (MatchTypeBitI64 | MatchTypeBitU64)) {
+            data_size = 8;
+        } else if (args._type_bits & (MatchTypeBitFLOAT)) {
+            data_size = 4;
+        } else if (args._type_bits & (MatchTypeBitDOUBLE)) {
             data_size = 8;
         }
 
@@ -246,8 +250,8 @@ std::shared_ptr<SessionView> scan(
             return nullptr;
         }
 
-        if (config._step == 0) {
-            config._step = data_size;
+        if (args._step == 0) {
+            args._step = data_size;
             message_view->stream()
                 << attributes::SetColor(attributes::ColorWarning)
                 << "Warning:"
@@ -257,7 +261,7 @@ std::shared_ptr<SessionView> scan(
                 << " bytes";
         }
 
-        auto comparator = dsl::parse_comparator_expression(config._expr);
+        auto comparator = dsl::parse_comparator_expression(args._expr);
         bool fast_mode { false };
 
         switch (comparator._comparator) {
@@ -304,40 +308,48 @@ std::shared_ptr<SessionView> scan(
             return nullptr;
         }
 
-        if (config._type_bits & MatchTypeBitI8) {
-            scan<int8_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitI8) {
+            scan<int8_t>(args, fast_mode, view->_session, comparator);
         }
 
-        if (config._type_bits & MatchTypeBitU8) {
-            scan<uint8_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitU8) {
+            scan<uint8_t>(args, fast_mode, view->_session, comparator);
         }
 
-        if (config._type_bits & MatchTypeBitI16) {
-            scan<int16_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitI16) {
+            scan<int16_t>(args, fast_mode, view->_session, comparator);
         }
 
-        if (config._type_bits & MatchTypeBitU16) {
-            scan<uint16_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitU16) {
+            scan<uint16_t>(args, fast_mode, view->_session, comparator);
         }
 
-        if (config._type_bits & MatchTypeBitI32) {
-            scan<int32_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitI32) {
+            scan<int32_t>(args, fast_mode, view->_session, comparator);
         }
 
-        if (config._type_bits & MatchTypeBitU32) {
-            scan<uint32_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitU32) {
+            scan<uint32_t>(args, fast_mode, view->_session, comparator);
         }
 
-        if (config._type_bits & MatchTypeBitI64) {
-            scan<int64_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitI64) {
+            scan<int64_t>(args, fast_mode, view->_session, comparator);
         }
 
-        if (config._type_bits & MatchTypeBitU64) {
-            scan<uint64_t>(config, fast_mode, view->_session, comparator);
+        if (args._type_bits & MatchTypeBitU64) {
+            scan<uint64_t>(args, fast_mode, view->_session, comparator);
+        }
+    
+        if (args._type_bits & MatchTypeBitFLOAT) {
+            scan<float>(args, fast_mode, view->_session, comparator);
         }
 
-    } else if (config._c_string) {
-        view->_session.scan(ScanBytes { typeBYTES { config._expr.begin(), config._expr.end() } });
+        if (args._type_bits & MatchTypeBitDOUBLE) {
+            scan<double>(args, fast_mode, view->_session, comparator);
+        }
+
+    } else if (args._c_string) {
+        view->_session.scan(ScanBytes { typeBYTES { args._expr.begin(), args._expr.end() } }, args._prot, args._exclude_file);
 
     } else {
         message_view->stream()
@@ -392,12 +404,12 @@ static void filter_fast(Session& session, dsl::ComparatorType comparator, uintpt
 bool filter(
     std::shared_ptr<MessageView>& message_view,
     std::shared_ptr<SessionView>& session_view,
-    ScanArgs& config)
+    ScanArgs& args)
 {
     RefreshView refresh(session_view);
     auto* view = dynamic_cast<SessionViewImpl*>(session_view.get());
 
-    auto comparator = dsl::parse_comparator_expression(config._expr);
+    auto comparator = dsl::parse_comparator_expression(args._expr);
     bool fast_mode { false };
 
     switch (comparator._comparator) {
@@ -491,6 +503,11 @@ public:
         _options.add_options()("U32,I", po::bool_switch()->default_value(false), "32 bit unsigned integer");
         _options.add_options()("U16,H", po::bool_switch()->default_value(false), "16 bit unsigned integer");
         _options.add_options()("U8,B", po::bool_switch()->default_value(false), "8 bit unsigned integer");
+        _options.add_options()("FLOAT,f", po::bool_switch()->default_value(false), "float");
+        _options.add_options()("DOUBLE,d", po::bool_switch()->default_value(false), "double");
+        _options.add_options()("exec,x", po::bool_switch()->default_value(false), "scan executable memory");
+        _options.add_options()("exclude-file", po::bool_switch()->default_value(false), "exclude file");
+        _options.add_options()("write,w", po::bool_switch()->default_value(false), "scan writable memory");
         _options.add_options()("cstr,c", po::bool_switch()->default_value(false), "C string");
         _options.add_options()("expr", po::value<std::string>(), "scan expression");
         _options.add_options()("name,n", po::value<std::string>(), "session name");
@@ -506,33 +523,45 @@ public:
     {
         PROGRAM_OPTIONS();
 
-        ScanArgs config;
+        ScanArgs args;
 
         try {
             if (opts.count("expr")) {
-                config._expr = opts["expr"].as<std::string>();
+                args._expr = opts["expr"].as<std::string>();
             }
 
             if (opts.count("name")) {
-                config._name = opts["name"].as<std::string>();
+                args._name = opts["name"].as<std::string>();
             } else {
-                config._name = config._expr;
+                args._name = args._expr;
             }
 
             if (opts.count("step")) {
-                config._step = opts["step"].as<size_t>();
+                args._step = opts["step"].as<size_t>();
             }
 
-            config._c_string = opts["cstr"].as<bool>();
+            if (opts["exec"].as<bool>()) {
+                args._prot |= kRegionFlagExec;
+            }
 
-            config._type_bits |= opts["I8"].as<bool>() ? MatchTypeBitI8 : 0;
-            config._type_bits |= opts["I16"].as<bool>() ? MatchTypeBitI16 : 0;
-            config._type_bits |= opts["I32"].as<bool>() ? MatchTypeBitI32 : 0;
-            config._type_bits |= opts["I64"].as<bool>() ? MatchTypeBitI64 : 0;
-            config._type_bits |= opts["U8"].as<bool>() ? MatchTypeBitU8 : 0;
-            config._type_bits |= opts["U16"].as<bool>() ? MatchTypeBitU16 : 0;
-            config._type_bits |= opts["U32"].as<bool>() ? MatchTypeBitU32 : 0;
-            config._type_bits |= opts["U64"].as<bool>() ? MatchTypeBitU64 : 0;
+            if (opts["write"].as<bool>()) {
+                args._prot |= kRegionFlagWrite;
+            }
+
+            args._c_string = opts["cstr"].as<bool>();
+
+            args._exclude_file = opts["exclude-file"].as<bool>();
+
+            args._type_bits |= opts["I8"].as<bool>() ? MatchTypeBitI8 : 0;
+            args._type_bits |= opts["I16"].as<bool>() ? MatchTypeBitI16 : 0;
+            args._type_bits |= opts["I32"].as<bool>() ? MatchTypeBitI32 : 0;
+            args._type_bits |= opts["I64"].as<bool>() ? MatchTypeBitI64 : 0;
+            args._type_bits |= opts["U8"].as<bool>() ? MatchTypeBitU8 : 0;
+            args._type_bits |= opts["U16"].as<bool>() ? MatchTypeBitU16 : 0;
+            args._type_bits |= opts["U32"].as<bool>() ? MatchTypeBitU32 : 0;
+            args._type_bits |= opts["U64"].as<bool>() ? MatchTypeBitU64 : 0;
+            args._type_bits |= opts["FLOAT"].as<bool>() ? MatchTypeBitFLOAT : 0;
+            args._type_bits |= opts["DOUBLE"].as<bool>() ? MatchTypeBitDOUBLE : 0;
 
         } catch (const std::exception& e) {
             message()
@@ -542,7 +571,7 @@ public:
             return;
         }
 
-        if (config._expr.empty()) {
+        if (args._expr.empty()) {
             message() << "Usage: " << command << " [options] expression\n"
                       << _options;
             show();
@@ -560,7 +589,7 @@ public:
         }
 
         try {
-            auto view = scan(_app._message_view, _app._process, config);
+            auto view = scan(_app._message_view, _app._process, args);
             if (not view or view->tui_count() == 0) {
                 message()
                     << SetColor(ColorInfo)
@@ -603,11 +632,11 @@ public:
     {
         PROGRAM_OPTIONS();
 
-        ScanArgs config;
+        ScanArgs args;
 
         try {
             if (opts.count("expr")) {
-                config._expr = opts["expr"].as<std::string>();
+                args._expr = opts["expr"].as<std::string>();
             }
         } catch (const std::exception& e) {
             message()
@@ -616,7 +645,7 @@ public:
             return;
         }
 
-        if (config._expr.empty() or opts.count("help")) {
+        if (args._expr.empty() or opts.count("help")) {
             message() << "Usage: " << command << " [options] expression\n"
                       << _options;
             show();
@@ -644,7 +673,7 @@ public:
         }
 
         try {
-            filter(_app._message_view, _app._current_session_view, config);
+            filter(_app._message_view, _app._current_session_view, args);
         } catch (const std::exception& e) {
             message()
                 << EnableStyle(AttrUnderline) << SetColor(ColorError) << "Error:" << ResetStyle() << " "

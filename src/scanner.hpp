@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #ifndef __scanner_hpp__
 #define __scanner_hpp__
 
+#include <cmath>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -274,12 +275,25 @@ public:
     }
 
     template <typename T>
-    void scan(T&& scanner, uint32_t mask = kRegionFlagRead)
+    void scan(T&& scanner, uint32_t prot, bool exclude_file=false)
     {
 #pragma omp parallel for schedule(dynamic)
         for (auto& region : _memory_regions) {
 
-            if ((region._prot & mask) != mask) {
+            if ((region._prot & prot) != prot) {
+                continue;
+            }
+
+#ifdef __ANDROID__
+            if (region._desc.find("anon:dalvik-") != std::string::npos) {
+                continue;
+            }
+            if (region._file.find("/dev/kgsl") != std::string::npos) {
+                continue;
+            }
+#endif
+
+            if (exclude_file and not region._android_bss and not region._file.empty()) {
                 continue;
             }
 
@@ -510,6 +524,11 @@ public:
             auto end = reinterpret_cast<uintptr_t>(buffer_end);
             for (uintptr_t iter = begin; iter != end; iter += step) {
                 auto value = *reinterpret_cast<ValueType*>(iter);
+                if constexpr (std::is_floating_point<ValueType>::value) {
+                    if (std::isnan(value)) {
+                        continue;
+                    }
+                }
                 if (UNLIKELY(comparator(value))) {
                     auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                     callback(MatchType(std::move(address), std::move(value)));
@@ -522,6 +541,11 @@ public:
             for (uintptr_t iter = begin; iter != end; iter += step) {
                 ValueType value;
                 memcpy(&value, reinterpret_cast<void*>(iter), sizeof(ValueType));
+                if constexpr (std::is_floating_point<ValueType>::value) {
+                    if (std::isnan(value)) {
+                        continue;
+                    }
+                }
                 if (UNLIKELY(comparator(value))) {
                     auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
                     callback(MatchType(std::move(address), std::move(value)));
@@ -560,6 +584,11 @@ public:
         for (uintptr_t iter = begin; iter != end; iter += step) {
             ValueType value;
             memcpy(&value, reinterpret_cast<void*>(iter), sizeof(ValueType));
+            if constexpr (std::is_floating_point<ValueType>::value) {
+                if (std::isnan(value)) {
+                    continue;
+                }
+            }
             auto address = addr_begin + (reinterpret_cast<uintptr_t>(iter) - reinterpret_cast<uintptr_t>(buffer_begin));
             if (UNLIKELY(_callable(0, value, address.get()))) {
                 callback(MatchType(std::move(address), std::move(value)));

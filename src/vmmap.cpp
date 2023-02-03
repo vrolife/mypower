@@ -80,6 +80,7 @@ std::vector<VMRegion> snapshot_impl(const std::string& s)
 
         if (not regions.empty() and regions.at(regions.size() -1)._end == region._begin and region._desc == "[anon:.bss]") {
             region._file = regions.rbegin()->_file;
+            region._android_bss = true;
         }
 
         regions.emplace_back(std::move(region));

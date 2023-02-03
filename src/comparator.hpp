@@ -50,6 +50,36 @@ public:
     }
 };
 
+template <bool Xor>
+class ComparatorMask<float, Xor> {
+public:
+    typedef float Type;
+    ComparatorMask(float target, float mask)
+    {
+        throw std::logic_error("floating point number with mask comparator");
+    }
+
+    inline bool operator()(const float& value) const
+    {
+        return false;
+    }
+};
+
+template <bool Xor>
+class ComparatorMask<double, Xor> {
+public:
+    typedef double Type;
+    ComparatorMask(double target, double mask)
+    {
+        throw std::logic_error("floating point number with mask comparator");
+    }
+
+    inline bool operator()(const double& value) const
+    {
+        return false;
+    }
+};
+
 template <typename T, bool Xor = false>
 class ComparatorRange {
     T _max;

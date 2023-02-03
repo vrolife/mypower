@@ -68,6 +68,7 @@ enum MatchTypeBits {
     MatchTypeBitDOUBLE = 512,
     MatchTypeBitBYTES = 1024,
     MatchTypeBitIntegerMask = 0xFF,
+    MatchTypeBitFloatingPointMask = MatchTypeBitFLOAT | MatchTypeBitDOUBLE,
     MatchTypeBitNumberMask = 0x3FF
 };
 

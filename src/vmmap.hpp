@@ -149,6 +149,7 @@ struct VMRegion {
     int _minor { 0 };
     int _inode { 0 };
     bool _deleted { false };
+    bool _android_bss{false};
 
     VMRegion() = default;
 

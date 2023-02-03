@@ -115,6 +115,9 @@ public:
         
         session.scan(ScanComparator<ComparatorMask<uintptr_t>>{ { ptr._pointer, config.mask }, config.step }, kRegionFlagReadWrite);
 
+        // slow
+        // session.scan(ScanComparator<ComparatorRange<uintptr_t>>{ { ptr._pointer - config.offset_max, ptr._pointer }, config.step }, kRegionFlagReadWrite);
+
         if (session.U64_size() > config.result_max) {
             message() << pad(ptr._depth) << "Too many result " << session.U64_size();
             return;
@@ -132,12 +135,6 @@ public:
             }
 
             if (iter->_addr.get() >= config.begin and iter->_addr.get() < config.end) {
-                // message() 
-                //     << pad(ptr._depth) << attributes::SetColor(attributes::ColorInfo) 
-                //     << "Got it: " << attributes::ResetStyle() << (void*)iter->_addr.get() 
-                //     << " Value: " << (void*)iter->_value 
-                //     << " Offset: " << (ptr._pointer - iter->_value);
-
                 PointerInfo next{};
                 next._pointer = iter->_addr.get();
                 next._value = iter->_value;
@@ -153,11 +150,6 @@ public:
             }
 
             if ((ptr._pointer - iter->_value) < config.offset_max) {
-                // message() 
-                //     << pad(ptr._depth) 
-                //     << "Next: " << (void*)iter->_addr.get() 
-                //     << " Value: " << (void*)iter->_value 
-                //     << " Offset: " << (ptr._pointer - iter->_value);
                 PointerInfo next{};
                 next._pointer = iter->_addr.get();
                 next._value = iter->_value;
