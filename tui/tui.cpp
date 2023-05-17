@@ -531,7 +531,7 @@ void TUI::draw()
             wprintw(_win_editor, "%s ", _editor.buffer().c_str());
             wmove(_win_editor, 0, _editor.cursor() + prompt.size());
         } else {
-            waddstr(_win_editor, "Press ESC enter command mode");
+            waddstr(_win_editor, "Press ESC to enter command mode");
         }
         wnoutrefresh(_win_editor);
     }

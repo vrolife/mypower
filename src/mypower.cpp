@@ -156,6 +156,9 @@ public:
     }
 
     void tui_start() override {
+        _message_view->stream() << "Press ESC key to enter list mode";
+        _commands_to_execute.push_back("help");
+
         for (auto& cmd : _commands_to_execute) {
             tui_run(cmd);
         }
