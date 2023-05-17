@@ -35,6 +35,11 @@ public:
         _options.add_options()("pid,p", po::value<pid_t>(), "target process pid");
         _posiginal.add("pid", 1);
     }
+    
+    void show_short_help() override
+    {
+        message() << "attach\t\t\tAttach process";
+    }
 
     std::string complete(const std::string& input) override
     {

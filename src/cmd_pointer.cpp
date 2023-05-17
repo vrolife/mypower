@@ -62,13 +62,18 @@ public:
         _options.add_options()("pointer", po::value<std::string>(), "pointer");
         _options.add_options()("mask", po::value<std::string>(), "mask");
         _options.add_options()("depth-max", po::value<size_t>()->default_value(5), "depth max");
-        _options.add_options()("offset-max", po::value<size_t>()->default_value(1024), "offset max");
+        _options.add_options()("offset-max", po::value<size_t>()->default_value(1024), "struct offset max");
         _options.add_options()("result-max", po::value<size_t>()->default_value(1024), "result max");
         _options.add_options()("step", po::value<size_t>()->default_value(sizeof(uintptr_t)), "step size");
         _options.add_options()("all", po::bool_switch()->default_value(false), "find all");
         _posiginal.add("begin", 1);
         _posiginal.add("end", 1);
         _posiginal.add("pointer", 1);
+    }
+    
+    void show_short_help() override
+    {
+        message() << "pointer\t\t\tScan pointer";
     }
 
     bool match(const std::string& command) override
