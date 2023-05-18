@@ -45,7 +45,7 @@ public:
     }
 
     void show_short_help() override {
-        message() << "disable-inotify";
+        message() << "disable-inotify\t\tWrite 0 to /proc/sys/fs/inotify/max_user_{instances,watches}";
     }
 
     void run(const std::string& command, const std::vector<std::string>& arguments) override
