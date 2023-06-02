@@ -120,7 +120,9 @@ public:
     CommandRegion(Application& app)
         : Command(app, "region")
     {
+        _options.add_options()("help", "show help message");
         _options.add_options()("info", po::bool_switch()->default_value(false), "show memory information");
+        _options.add_options()("addr", po::bool_switch()->default_value(false), "show address information");
         _options.add_options()("regex,r", po::bool_switch()->default_value(false), "regex filter");
         _options.add_options()("filter", po::value<std::string>(), "filter");
         _posiginal.add("filter", 1);
@@ -165,11 +167,34 @@ public:
             return;
         }
 
-        if (not opts["regex"].as<bool>()) {
-            filter = ".*"s + filter + ".*"s;
-        }
-
         auto regions = _app._process->get_memory_regions();
+
+        if (opts["addr"].as<bool>())
+        {
+            auto addr_ast = mathexpr::parse(filter);
+            auto addr_number_ast = dynamic_cast<mathexpr::ASTNumber*>(addr_ast.get());
+            if (addr_ast == nullptr) {
+                message()
+                    << SetColor(ColorError)
+                    << "Error:"
+                    << ResetStyle()
+                    << " Unsupported address expression";
+                show();
+                return;
+            }
+
+            VMAddress addr{addr_number_ast->_value};
+
+            for(auto iter = regions.begin(); iter != regions.end();) {
+                if (addr >= iter->_begin and addr < iter->_end) {
+                    iter ++;
+                } else {
+                    iter = regions.erase(iter);
+                }
+            }
+            show(std::make_shared<RegionListView>(std::move(regions)));
+            return;
+        }
 
         if (opts["info"].as<bool>())
         {
@@ -219,6 +244,10 @@ public:
             OUTPUT(DEV);
             OUTPUT(NONE);
             return;
+        }
+
+        if (not opts["regex"].as<bool>()) {
+            filter = ".*"s + filter + ".*"s;
         }
 
         if (not filter.empty()) {
